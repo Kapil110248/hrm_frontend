@@ -1,7 +1,48 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Printer, FileText, CheckCircle, Save, LogOut, Search, Loader2 } from 'lucide-react';
+import { Printer, FileText, CheckCircle2, Save, LogOut, Search, Loader2, X, AlertTriangle, AlertOctagon } from 'lucide-react';
 import { api } from '../../services/api';
+
+const Toast = ({ message, type, onClose }) => {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 3000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    const bgColors = {
+        success: 'bg-green-600',
+        error: 'bg-red-600',
+        info: 'bg-blue-600',
+        warning: 'bg-orange-500'
+    };
+
+    return (
+        <div className={`fixed bottom-4 right-4 ${bgColors[type] || 'bg-gray-800'} text-white px-4 py-3 rounded shadow-lg flex items-center gap-3 z-50 animate-fade-in-up`}>
+            {type === 'success' && <CheckCircle2 size={18} />}
+            {type === 'error' && <AlertOctagon size={18} />}
+            {type === 'warning' && <AlertTriangle size={18} />}
+            <span className="font-bold text-xs uppercase tracking-wide">{message}</span>
+            <button onClick={onClose} className="ml-2 hover:bg-white/20 rounded-full p-1"><X size={14} /></button>
+        </div>
+    );
+};
+
+const Modal = ({ isOpen, onClose, title, children }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white w-full max-w-sm rounded shadow-2xl border border-gray-200 overflow-hidden transform transition-all scale-100">
+                <div className="bg-[#D4D0C8] px-4 py-2 border-b border-gray-300 flex justify-between items-center">
+                    <h3 className="font-black text-gray-700 uppercase text-xs tracking-wider">{title}</h3>
+                    <button onClick={onClose} className="text-gray-500 hover:text-red-600 transition-colors"><X size={16} /></button>
+                </div>
+                <div className="p-4 bg-[#EBE9D8]">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const ChequePrinting = () => {
     const navigate = useNavigate();
@@ -9,7 +50,7 @@ const ChequePrinting = () => {
     const [printing, setPrinting] = useState(false);
     const [activeUser] = useState(JSON.parse(localStorage.getItem('currentUser') || '{}'));
     const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
-    const [period, setPeriod] = useState('Feb-2026'); // Default period
+    const [period, setPeriod] = useState('Feb-2026');
     const [queue, setQueue] = useState([]);
     const [settings, setSettings] = useState({
         bankAccount: 'BNS - MAIN OPERATING (****8932)',
@@ -17,19 +58,23 @@ const ChequePrinting = () => {
         template: 'Standard 3-per-page (Voucher)'
     });
 
+    const [toast, setToast] = useState(null);
+    const [showPrintModal, setShowPrintModal] = useState(false);
+
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+    };
+
     const fetchQueue = async () => {
         if (!selectedCompany.id) return;
         try {
             setLoading(true);
-            // Fetch payrolls for the selected period to generate cheques
             const response = await api.fetchPayrolls({
                 companyId: selectedCompany.id,
                 period: period
             });
 
             if (response.success) {
-                // Filter for valid payrolls (e.g., typically those not yet paid, or just all for this period)
-                // For this implementation, we allow printing for any payroll record in the period.
                 const mapped = (response.data || []).map(p => ({
                     id: p.id,
                     name: `${p.employee?.firstName} ${p.employee?.lastName}`.toUpperCase(),
@@ -37,12 +82,13 @@ const ChequePrinting = () => {
                     amount: parseFloat(p.netSalary || 0),
                     payee: `${p.employee?.firstName} ${p.employee?.lastName}`,
                     bankAccount: settings.bankAccount
-                })).filter(item => item.amount > 0); // Only positive amounts
+                })).filter(item => item.amount > 0);
 
                 setQueue(mapped);
             }
         } catch (err) {
             console.error(err);
+            showToast("Failed to fetch print queue.", "error");
         } finally {
             setLoading(false);
         }
@@ -55,45 +101,41 @@ const ChequePrinting = () => {
     }, [selectedCompany.id, period]);
 
     const handlePrint = async () => {
-        if (queue.length === 0) {
-            alert("QUEUE IS EMPTY: No items available to print.");
-            return;
-        }
+        setShowPrintModal(false);
+        if (queue.length === 0) return;
 
-        const confirm = window.confirm(`PROCEED TO PRINT ${queue.length} CHEQUES?\n\nThis will generate cheque numbers and log the printing event in the history.`);
-        if (confirm) {
-            try {
-                setPrinting(true);
-                const printData = {
-                    companyId: selectedCompany.id,
-                    period: period,
-                    cheques: queue.map((item, idx) => ({
-                        payrollId: item.id,
-                        employeeId: item.id, // Keeping compatibility
-                        chequeNumber: (parseInt(settings.startingCheque) + idx).toString(),
-                        amount: item.amount,
-                        payee: item.payee,
-                        date: new Date().toISOString().split('T')[0],
-                        bankAccount: settings.bankAccount
-                    })),
-                    printedBy: activeUser.email
-                };
+        try {
+            setPrinting(true);
+            const printData = {
+                companyId: selectedCompany.id,
+                period: period,
+                cheques: queue.map((item, idx) => ({
+                    payrollId: item.id,
+                    employeeId: item.id,
+                    chequeNumber: (parseInt(settings.startingCheque) + idx).toString(),
+                    amount: item.amount,
+                    payee: item.payee,
+                    date: new Date().toISOString().split('T')[0],
+                    bankAccount: settings.bankAccount
+                })),
+                printedBy: activeUser.email
+            };
 
-                const response = await api.printCheques(printData);
-                if (response.success) {
-                    alert(`SYSTEM: ${response.data.count || queue.length} CHEQUES PROCESSED SUCCESSFULLY.\nPrint job sent to target device.`);
+            const response = await api.printCheques(printData);
+            if (response.success) {
+                showToast(`${response.data.count || queue.length} cheques processed successfully.`, "success");
+                setTimeout(() => {
                     window.print();
-                    // Optionally refresh or clear queue
-                    // fetchQueue(); 
-                } else {
-                    alert(response.message || "PRINT_FAILURE: Process aborted.");
-                }
-            } catch (err) {
-                console.error(err);
-                alert("COMMS_ERROR: Device unreachable or software timeout.");
-            } finally {
+                    setPrinting(false);
+                }, 1000);
+            } else {
+                showToast(response.message || "Print process aborted.", "error");
                 setPrinting(false);
             }
+        } catch (err) {
+            console.error(err);
+            showToast("Communication error with print server.", "error");
+            setPrinting(false);
         }
     };
 
@@ -104,7 +146,35 @@ const ChequePrinting = () => {
     const firstItem = queue[0] || { payee: 'PAYEE NAME', amount: 0 };
 
     return (
-        <div className="flex flex-col h-full w-full bg-[#EBE9D8] font-sans text-xs">
+        <div className="flex flex-col h-full w-full bg-[#EBE9D8] font-sans text-xs relative">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+            <Modal isOpen={showPrintModal} onClose={() => setShowPrintModal(false)} title="Confirm Batch Print">
+                <div className="flex flex-col gap-4">
+                    <div className="bg-blue-50 border border-blue-200 p-3 rounded text-blue-900 text-xs flex items-start gap-2">
+                        <Printer size={16} className="shrink-0 mt-0.5" />
+                        <div>
+                             You are about to generate and log <strong>{queue.length} cheques</strong> starting from sequence <strong>#{settings.startingCheque}</strong>.
+                        </div>
+                    </div>
+                    <p className="text-gray-600 italic text-[10px]">Ensure the correct stationery is loaded in the active device.</p>
+                    <div className="flex justify-end gap-2 mt-2">
+                        <button 
+                            onClick={() => setShowPrintModal(false)}
+                            className="px-4 py-2 bg-gray-200 text-gray-700 font-bold uppercase text-[10px] rounded-sm hover:bg-gray-300 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={handlePrint}
+                            className="px-4 py-2 bg-blue-800 text-white font-bold uppercase text-[10px] rounded-sm hover:bg-blue-900 transition-colors shadow-sm"
+                        >
+                            Execute Print
+                        </button>
+                    </div>
+                </div>
+            </Modal>
+
             {/* Header */}
             <div className="bg-[#D4D0C8] border-b border-gray-400 px-4 py-2 flex items-center justify-between shadow-sm">
                 <div className="flex items-center gap-2">
@@ -247,7 +317,10 @@ const ChequePrinting = () => {
                     <LogOut size={18} /> Exit Facility
                 </button>
                 <button
-                    onClick={handlePrint}
+                    onClick={() => {
+                        if (queue.length === 0) showToast("Queue is empty. No items to print.", "warning");
+                        else setShowPrintModal(true);
+                    }}
                     disabled={printing || queue.length === 0}
                     className={`px-12 py-3 border-2 flex items-center justify-center gap-3 text-[11px] font-black w-full sm:w-auto uppercase italic transition-all shadow-xl tracking-widest ${printing || queue.length === 0 ? 'bg-gray-300 text-gray-500 border-gray-400' : 'bg-[#000080] text-white border-white border-b-black border-r-black hover:bg-blue-800 active:translate-y-1 active:shadow-inner active:border-b-0 active:border-r-0'}`}
                 >

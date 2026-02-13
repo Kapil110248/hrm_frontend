@@ -1,9 +1,38 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Printer, FileText, Save, LogOut, ArrowLeft, User, DollarSign, Calendar, Tag } from 'lucide-react';
+import { Printer, FileText, Save, LogOut, ArrowLeft, User, DollarSign, Calendar, Tag, CheckCircle2, AlertOctagon, X, Loader2 } from 'lucide-react';
+import { api } from '../../services/api';
+
+const Toast = ({ message, type, onClose }) => {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 3000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    const bgColors = {
+        success: 'bg-green-600',
+        error: 'bg-red-600',
+        info: 'bg-blue-600',
+        warning: 'bg-orange-500'
+    };
+
+    return (
+        <div className={`fixed bottom-4 right-4 ${bgColors[type] || 'bg-gray-800'} text-white px-4 py-3 rounded shadow-lg flex items-center gap-3 z-50 animate-fade-in-up`}>
+            {type === 'success' && <CheckCircle2 size={18} />}
+            {type === 'error' && <AlertOctagon size={18} />}
+            <span className="font-bold text-xs uppercase tracking-wide">{message}</span>
+            <button onClick={onClose} className="ml-2 hover:bg-white/20 rounded-full p-1"><X size={14} /></button>
+        </div>
+    );
+};
 
 const SingleChequePrinting = () => {
     const navigate = useNavigate();
+    const [saving, setSaving] = useState(false);
+    const [activeUser] = useState(JSON.parse(localStorage.getItem('currentUser') || '{}'));
+    const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
+    const [toast, setToast] = useState(null);
+
     const [chequeData, setChequeData] = useState({
         payee: '',
         amount: '',
@@ -13,22 +42,61 @@ const SingleChequePrinting = () => {
         bank: 'BNS - MAIN OPERATING'
     });
 
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+    };
+
     const formatCurrency = (val) => {
         if (!val) return '0.00';
         return new Intl.NumberFormat('en-JM', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(val);
     };
 
-    const handlePrint = () => {
+    const handleSave = async (print = false) => {
         if (!chequeData.payee || !chequeData.amount) {
-            alert("VALIDATION ERROR: Please provide Payee and Amount before printing.");
+            showToast("Please provide Payee and Amount.", "warning");
             return;
         }
-        alert(`INITIALIZING PRINTER: Spooling Cheque #${chequeData.chequeNumber} for ${chequeData.payee}...`);
-        window.print();
+
+        try {
+            setSaving(true);
+            const payload = {
+                companyId: selectedCompany.id,
+                chequeNumber: chequeData.chequeNumber,
+                payee: chequeData.payee,
+                amount: parseFloat(chequeData.amount),
+                date: chequeData.date,
+                memo: chequeData.memo,
+                bankAccount: chequeData.bank,
+                status: print ? 'Printed' : 'Draft',
+                createdBy: activeUser.email
+            };
+
+            const response = await api.createCheque(payload);
+
+            if (response.success) {
+                showToast(print ? "Cheque logged and sent to printer." : "Cheque saved to register.", "success");
+                if (print) {
+                    setTimeout(() => {
+                        window.print();
+                    }, 500);
+                } else {
+                     // Maybe clear form or stay? 
+                }
+            } else {
+                showToast(response.message || "Failed to save cheque.", "error");
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("Server error occurred.", "error");
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
-        <div className="flex flex-col h-full w-full bg-[#EBE9D8] font-sans text-xs">
+        <div className="flex flex-col h-full w-full bg-[#EBE9D8] font-sans text-xs relative">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
             {/* Header */}
             <div className="bg-[#D4D0C8] border-b border-gray-400 px-4 py-2 flex items-center justify-between shadow-sm no-print">
                 <div className="flex items-center gap-2">
@@ -57,7 +125,7 @@ const SingleChequePrinting = () => {
 
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="flex flex-col uppercase">
-                                    <span className="text-[11px] font-black tracking-tight">Island HR Solutions Limited</span>
+                                    <span className="text-[11px] font-black tracking-tight">{selectedCompany.name || 'Island HR Solutions Limited'}</span>
                                     <span className="text-[8px] font-bold text-gray-400">Kingston, Jamaica</span>
                                 </div>
                                 <div className="flex flex-col items-end">
@@ -92,7 +160,7 @@ const SingleChequePrinting = () => {
                             </div>
 
                             <div className="text-[16px] font-black tracking-[0.3em] font-mono text-gray-400 mt-6 flex justify-center gap-4 relative z-10">
-                                <span>⑆000104013⑆</span>
+                                <span>⑆000{chequeData.chequeNumber}⑆</span>
                                 <span>⑈0090029⑈</span>
                                 <span>⑉003495832⑉</span>
                             </div>
@@ -185,15 +253,20 @@ const SingleChequePrinting = () => {
                     <span>Close</span>
                 </button>
                 <button
+                    onClick={() => handleSave(false)}
+                    disabled={saving}
                     className="px-6 py-2.5 flex items-center justify-center gap-2 text-[10px] font-black text-blue-800 bg-white border-2 border-white border-b-gray-600 border-r-gray-600 hover:bg-blue-50 active:translate-y-0.5 transition-all w-full sm:w-auto uppercase italic"
                 >
-                    <Save size={16} /> Record Without Printing
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+                     Record Without Printing
                 </button>
                 <button
-                    onClick={handlePrint}
+                    onClick={() => handleSave(true)}
+                    disabled={saving}
                     className="px-10 py-2.5 bg-blue-700 text-white border-2 border-blue-500 border-b-blue-900 border-r-blue-900 flex items-center justify-center gap-2 text-[10px] font-black w-full sm:w-auto uppercase italic hover:bg-blue-800 active:translate-y-0.5 transition-all shadow-lg"
                 >
-                    <Printer size={16} /> Finalize & Print Cheque
+                    {saving ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
+                     Finalize & Print Cheque
                 </button>
             </div>
         </div>
