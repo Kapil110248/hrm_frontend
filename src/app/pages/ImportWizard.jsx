@@ -5,6 +5,7 @@ import {
     AlertCircle, Loader2, Search, ArrowRight,
     LucideFileText, Database, ShieldCheck
 } from 'lucide-react';
+import { api } from '../../services/api';
 
 const ImportWizard = () => {
     const navigate = useNavigate();
@@ -26,17 +27,25 @@ const ImportWizard = () => {
 
     const [step, setStep] = useState(1); // 1: Select, 2: Map/Verify, 3: Process, 4: Finish
     const [selectedFile, setSelectedFile] = useState(null);
+    const [fileObject, setFileObject] = useState(null);
     const [progress, setProgress] = useState(0);
     const [statusText, setStatusText] = useState('');
     const [importLog, setImportLog] = useState([]);
 
-    // Auto-start if file was passed from Topbar
+    // Auto-start if file was passed from Topbar/FileManager
     React.useEffect(() => {
         if (location.state?.autoStart && location.state?.fileName) {
             setSelectedFile({
                 name: location.state.fileName,
                 size: location.state.fileSize
             });
+
+            // Check window bridge for File object
+            if (window.pendingFile) {
+                setFileObject(window.pendingFile);
+                // Clean up to prevent stale data on re-visits
+                // window.pendingFile = null; 
+            }
             setStep(2);
         }
     }, [location.state]);
@@ -45,36 +54,45 @@ const ImportWizard = () => {
         const file = e.target.files[0];
         if (file) {
             setSelectedFile(file);
+            setFileObject(file);
             setStep(2);
         }
     };
 
-    const startImport = () => {
-        setStep(3);
-        setProgress(0);
-        setStatusText('Analyzing file structure...');
+    const startImport = async () => {
+        if (!fileObject) {
+            alert("STATION ALERT: No valid file object detected for transmission.");
+            return;
+        }
 
-        let p = 0;
-        const interval = setInterval(() => {
-            p += Math.random() * 8;
-            if (p >= 100) {
-                p = 100;
-                clearInterval(interval);
-                setStatusText('Import sequence finalized.');
+        try {
+            setStep(3);
+            setProgress(30);
+            setStatusText(isRestore ? 'Initializing Restore Protocol...' : 'Uploading master file...');
+
+            let response;
+            if (isRestore) {
+                response = await api.restoreSystemBackup(fileObject);
+            } else {
+                response = await api.importMasterData(fileObject);
+            }
+
+            if (response.success) {
+                setProgress(100);
+                setStatusText('Sequence finalized.');
                 setImportLog([
-                    { msg: 'File verified successfully', type: 'success' },
-                    { msg: `${isTimesheet ? '84 Attendance records' : '156 Transactions'} parsed`, type: 'info' },
+                    { msg: 'File integrity verified', type: 'success' },
+                    { msg: `${isRestore ? response.data.recordsRestored : response.data.recordsProcessed} Records processed`, type: 'info' },
                     { msg: 'Database sync completed', type: 'success' },
-                    { msg: 'No errors detected in source data', type: 'success' },
+                    { msg: 'Station log updated', type: 'success' },
                 ]);
                 setTimeout(() => setStep(4), 500);
-            } else {
-                setProgress(p);
-                if (p > 20) setStatusText('Parsing record fields...');
-                if (p > 50) setStatusText('Validating data types...');
-                if (p > 80) setStatusText('Updating system registers...');
             }
-        }, 150);
+        } catch (err) {
+            console.error(err);
+            setStep(2);
+            alert(`PROTOCOL FAILURE: ${err.message || 'Transmission error during file processing'}`);
+        }
     };
 
     return (

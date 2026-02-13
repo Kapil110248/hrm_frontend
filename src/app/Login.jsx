@@ -35,13 +35,13 @@ const Login = ({ onLogin }) => {
 
         if (role === 'hr') {
             email = 'hr@islandhr.com';
-            pass = 'hr123';
+            pass = 'admin123';
         } else if (role === 'finance') {
             email = 'finance@islandhr.com';
-            pass = 'finance123';
+            pass = 'admin123';
         } else if (role === 'employee') {
             email = 'staff@islandhr.com';
-            pass = 'staff123';
+            pass = 'admin123';
         }
 
         setUsername(email);

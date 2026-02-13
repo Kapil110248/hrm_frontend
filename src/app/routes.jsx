@@ -77,6 +77,7 @@ import ChequePrintHistory from './pages/ChequePrintHistory';
 import SystemDiagnostics from './pages/SystemDiagnostics';
 import DatabaseCleanup from './pages/DatabaseCleanup';
 import SecurityAudit from './pages/SecurityAudit';
+import AuditLogs from './pages/AuditLogs';
 
 import ProtectedRoute from './ProtectedRoute';
 
@@ -231,6 +232,7 @@ const AppRoutes = ({ onLogout, currentUser }) => {
                     <Route path="/tools/diagnostics" element={<SystemDiagnostics />} />
                     <Route path="/tools/cleanup" element={<DatabaseCleanup />} />
                     <Route path="/tools/security" element={<SecurityAudit />} />
+                    <Route path="/tools/audit" element={<AuditLogs />} />
                 </Route>
 
                 {/* 5. Employee Access (Self Service) */}

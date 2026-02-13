@@ -44,6 +44,7 @@ const Topbar = ({ onLogout, onSelectCompany, companyName, isCompanySelected = fa
                 },
                 { label: 'Customized Modules', action: 'customized_modules' },
                 { label: 'System Configuration', action: 'system_settings' },
+                { label: 'System Logs', action: 'audit_logs' },
                 { label: 'Log Out', action: 'logout' },
                 { label: 'Quit', action: 'quit' }
             ]
@@ -389,9 +390,10 @@ const Topbar = ({ onLogout, onSelectCompany, companyName, isCompanySelected = fa
                 'payslip_my': '/employee/payslips',
                 'reports_hub': '/reports/hub',
                 'files_export': '/files?action=export',
-                'files_import': '/files', // Will be caught by direct trigger or page logic
+                'files_import': '/files?action=import',
                 'files_backup': '/files?action=backup',
                 'files_restore': '/files?action=restore',
+                'audit_logs': '/tools/audit',
             };
 
             const path = navigateTo[item.action];

@@ -71,6 +71,27 @@ const AdvancePayment = () => {
     const adminCharge = amount ? parseFloat(amount) * 0.01 : 0;
     const totalDisbursement = amount ? parseFloat(amount) + adminCharge : 0;
 
+    const getInstallmentsCount = () => {
+        if (terms.includes('1 Month')) return 1;
+        if (terms.includes('2 Months')) return 2;
+        if (terms.includes('3 Months')) return 3;
+        if (terms.includes('6 Months')) return 6;
+        return 1;
+    };
+
+    const getCurrentPeriod = () => {
+        const now = new Date();
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${months[now.getMonth()]}-${now.getFullYear()}`;
+    };
+
+    const getNextPeriod = () => {
+        const now = new Date();
+        now.setMonth(now.getMonth() + 1);
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        return `${months[now.getMonth()]}-${now.getFullYear()}`;
+    };
+
     const handleSave = async () => {
         if (!selectedEmployee || !amount) return;
 
@@ -82,7 +103,9 @@ const AdvancePayment = () => {
                 amount: parseFloat(amount),
                 purpose: `Advance Payment - ${terms}`,
                 status: 'PENDING',
-                requestedBy: activeUser.email
+                requestedBy: activeUser.email,
+                installments: getInstallmentsCount(),
+                deductionStart: getNextPeriod() // Default to next month
             };
             const response = await api.createAdvancePayment(payload);
             if (response.success) {
@@ -116,7 +139,9 @@ const AdvancePayment = () => {
                     status: 'PAID', // Direct disbursement
                     requestedBy: activeUser.email,
                     approvedBy: activeUser.email,
-                    paymentDate: new Date().toISOString()
+                    paymentDate: new Date().toISOString(),
+                    installments: getInstallmentsCount(),
+                    deductionStart: getNextPeriod() // Default to next month
                 };
                 const response = await api.createAdvancePayment(payload);
                 if (response.success) {
@@ -215,7 +240,7 @@ const AdvancePayment = () => {
                                     </div>
                                     <div className="ml-auto text-center md:text-right bg-gray-50 p-6 border-2 border-white border-r-gray-100 border-b-gray-100 shadow-inner rounded-xl min-w-[200px]">
                                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest italic mb-2">Available Credit Ceiling</p>
-                                        <p className="text-4xl font-black text-blue-800 italic leading-none tabular-nums tracking-tighter">${selectedEmployee.limit.toLocaleString()}</p>
+                                        <p className="text-4xl font-black text-blue-800 italic leading-none tabular-nums tracking-tighter">${(selectedEmployee.limit - selectedEmployee.balance).toLocaleString()}</p>
                                     </div>
                                 </div>
 
@@ -223,12 +248,14 @@ const AdvancePayment = () => {
                                     <div className="space-y-8">
                                         <div className="space-y-3">
                                             <label className="font-black text-blue-800 uppercase italic text-[10px] tracking-widest ml-1">Proposed Disbursement Amount</label>
-                                            <div className="relative group">
-                                                <div className="absolute inset-y-0 left-4 flex items-center text-blue-400 font-black text-2xl group-focus-within:text-blue-600 transition-colors">$</div>
+                                            <div className="flex items-center gap-1 bg-gray-50/50 border-2 border-gray-100 rounded-sm shadow-inner focus-within:border-blue-600 focus-within:bg-white transition-all overflow-hidden pr-4">
+                                                <div className="pl-4 text-blue-400 shrink-0">
+                                                    <DollarSign size={20} strokeWidth={3} />
+                                                </div>
                                                 <input
                                                     type="number"
                                                     placeholder="0.00"
-                                                    className="w-full pl-12 pr-6 py-6 border-2 border-gray-100 bg-gray-50/50 text-4xl font-black italic text-blue-900 outline-none focus:bg-white focus:border-blue-600 transition-all rounded-sm shadow-inner"
+                                                    className="w-full bg-transparent py-4 text-2xl font-black italic text-blue-900 outline-none"
                                                     value={amount}
                                                     onChange={(e) => setAmount(e.target.value)}
                                                 />

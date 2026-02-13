@@ -26,6 +26,14 @@ export const api = {
         }
     },
 
+    fetchSessions: async () => {
+        return apiClient.get('/auth/sessions');
+    },
+
+    terminateSessions: async (currentRefreshToken) => {
+        return apiClient.post('/auth/terminate-sessions', { currentRefreshToken });
+    },
+
     fetchCompanies: async () => {
         return apiClient.get('/companies');
     },
@@ -136,6 +144,14 @@ export const api = {
 
     fetchDepartments: async (companyId) => {
         return apiClient.get(`/departments?companyId=${companyId}`);
+    },
+
+    fetchUserProfile: async () => {
+        return apiClient.get('/users/me');
+    },
+
+    updateWindowPreferences: async (windowPreferences) => {
+        return apiClient.put('/users/preferences', { windowPreferences });
     },
 
     // ========== FINANCE MODULE ==========
@@ -318,6 +334,36 @@ export const api = {
     },
     deleteBankAccount: async (id) => {
         return apiClient.delete(`/bank-accounts/${id}`);
+    },
+
+    // File Maintenance & Backups
+    exportMasterData: async (companyId) => {
+        const query = companyId ? `?companyId=${companyId}` : '';
+        return apiClient.get(`/files/export${query}`);
+    },
+    importMasterData: async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return apiClient.post('/files/import', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
+    createSystemBackup: async () => {
+        return apiClient.post('/files/backup');
+    },
+    restoreSystemBackup: async (file) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        return apiClient.post('/files/restore', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
+    fetchBackupLogs: async () => {
+        return apiClient.get('/files/logs');
+    },
+    downloadBackupFile: (filename) => {
+        // Returns the URL for downloading
+        return `${apiClient.defaults.baseURL}/files/download/${filename}`;
     },
 
     // Gang Shift

@@ -3,17 +3,37 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import {
     Folder, Database, Download, Upload, ShieldCheck,
     History, LogOut, FileCode, CheckCircle2, AlertCircle,
-    Loader2, LucideFileJson, LucideFileSpreadsheet, Search
+    Loader2, LucideFileJson, LucideFileSpreadsheet, Search, Shield
 } from 'lucide-react';
+import { api } from '../../services/api';
 
 const FileManager = () => {
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
-    const [backups, setBackups] = useState([
-        { id: 'OP772', date: '29/01/2026', type: 'BACKUP', size: '45.2 MB', user: 'Admin', status: 'VERIFIED' },
-        { id: 'OP771', date: '28/01/2026', type: 'EXPORT', size: '12.4 MB', user: 'Finance', status: 'VERIFIED' },
-        { id: 'OP770', date: '27/01/2026', type: 'IMPORT', size: '8.1 MB', user: 'HR_Sys', status: 'COMPLETED' },
-    ]);
+    const [backups, setBackups] = useState([]);
+
+    const fetchLogs = async () => {
+        try {
+            const res = await api.fetchBackupLogs();
+            if (res.success) {
+                setBackups(res.data.map(b => ({
+                    id: b.id,
+                    date: new Date(b.date).toLocaleDateString('en-GB'),
+                    type: b.type,
+                    size: b.size,
+                    user: b.user,
+                    status: b.status,
+                    filename: b.filename
+                })));
+            }
+        } catch (err) {
+            console.error("Failed to fetch backup logs:", err);
+        }
+    };
+
+    useEffect(() => {
+        fetchLogs();
+    }, []);
 
     const [isProcessing, setIsProcessing] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -45,57 +65,38 @@ const FileManager = () => {
         }
     }, [location.search]);
 
-    const runSimulation = (type, message, callback) => {
-        setModalType(type);
-        setShowModal(true);
-        setIsProcessing(true);
-        setProgress(0);
-        setStatusText(`Initializing ${type} protocol...`);
+    const handleBackup = async () => {
+        try {
+            setModalType('BACKUP');
+            setShowModal(true);
+            setIsProcessing(true);
+            setProgress(10);
+            setStatusText('Initializing backup protocol...');
 
-        let currentProgress = 0;
-        const interval = setInterval(() => {
-            currentProgress += Math.random() * 15;
-            if (currentProgress >= 100) {
-                currentProgress = 100;
-                clearInterval(interval);
-                setStatusText(`CRC Verification Successful. Operation ${type} finalized.`);
+            const res = await api.createSystemBackup();
+            if (res.success) {
+                setProgress(100);
+                setStatusText('CRC Verification Successful. Operation BACKUP finalized.');
+                fetchLogs();
                 setTimeout(() => {
                     setIsProcessing(false);
-                    callback();
+                    alert(`✓ SYSTEM BACKUP GENERATED\n\nArchive Name: ${res.data.filename}\nSize: ${res.data.size}`);
                 }, 800);
-            } else {
-                setProgress(currentProgress);
-                if (type === 'RESTORE') {
-                    if (currentProgress > 20) setStatusText(`Mapping Integrity Points...`);
-                    if (currentProgress > 45) setStatusText(`Reconstructing Partition Tables...`);
-                    if (currentProgress > 75) setStatusText(`Syncing Logical Indices...`);
-                } else {
-                    if (currentProgress > 20) setStatusText(`Reading Cluster Headers...`);
-                    if (currentProgress > 45) setStatusText(`Processing Data Packets [${Math.floor(currentProgress * 42)} records]...`);
-                    if (currentProgress > 75) setStatusText(`Finalizing RSA-4096 Encryption...`);
-                }
             }
-        }, 200);
-    };
-
-    const handleBackup = () => {
-        runSimulation('BACKUP', 'Creating system snapshot...', () => {
-            const newOp = {
-                id: `OP${773 + backups.length}`,
-                date: new Date().toLocaleDateString('en-GB'),
-                type: 'BACKUP',
-                size: '45.8 MB',
-                user: 'Admin',
-                status: 'VERIFIED'
-            };
-            setBackups(prev => [newOp, ...prev]);
-        });
+        } catch (err) {
+            console.error(err);
+            alert("BACKUP FAILED: System could not generate snapshot.");
+            setShowModal(false);
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     const handleRestore = () => {
-        runSimulation('RESTORE', 'Scanning cluster indices...', () => {
-            alert('SYSTEM RESTORE COMPLETE: Database has been rolled back to the selected integrity point.');
-        });
+        pendingOpRef.current = 'restore';
+        if (fileInputRef.current) {
+            fileInputRef.current.click();
+        }
     };
 
     const handleImportClick = () => {
@@ -108,32 +109,57 @@ const FileManager = () => {
     const handleFileChange = (event) => {
         const file = event.target.files[0];
         if (file) {
-            const targetPath = pendingOpRef.current === 'restore' ? '/files/restore' :
-                pendingOpRef.current === 'backup' ? '/files/backup' : '/files/import';
+            const targetPath = pendingOpRef.current === 'restore' ? '/files/restore' : '/files/import';
+
+            // Use window as a bridge because history state serializes and breaks File objects
+            window.pendingFile = file;
 
             navigate(targetPath, {
                 state: {
                     autoStart: true,
                     fileName: file.name,
-                    fileSize: file.size
+                    fileSize: file.size,
+                    isRestore: pendingOpRef.current === 'restore'
                 }
             });
         }
     };
 
-    const handleExport = () => {
-        runSimulation('EXPORT', 'Compressing master records...', () => {
-            const newOp = {
-                id: `OP${773 + backups.length}`,
-                date: new Date().toLocaleDateString('en-GB'),
-                type: 'EXPORT',
-                size: '14.2 MB',
-                user: 'Admin',
-                status: 'VERIFIED'
-            };
-            setBackups(prev => [newOp, ...prev]);
-            alert('DOWNLOAD READY: Master_Export_2026.xlsx generated and saved to local station.');
-        });
+    const handleExport = async () => {
+        try {
+            setModalType('EXPORT');
+            setShowModal(true);
+            setIsProcessing(true);
+            setProgress(30);
+            setStatusText('Compressing master records...');
+
+            const res = await api.exportMasterData();
+            if (res.success) {
+                setProgress(100);
+                setStatusText('Operation EXPORT finalized.');
+
+                // Create a download link for the JSON data
+                const blob = new Blob([JSON.stringify(res.data, null, 2)], { type: 'application/json' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `HRM_Master_Export_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+
+                setTimeout(() => {
+                    setIsProcessing(false);
+                }, 800);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("EXPORT FAILED: Encryption protocol interrupted.");
+            setShowModal(false);
+        } finally {
+            setIsProcessing(false);
+        }
     };
 
     return (
@@ -247,25 +273,7 @@ const FileManager = () => {
                                 />
                             </div>
                             <button
-                                onClick={() => {
-                                    setIsProcessing(true);
-                                    setModalType('SCAN');
-                                    setShowModal(true);
-                                    setStatusText('Scanning system journals for new transactions...');
-                                    let p = 0;
-                                    const inv = setInterval(() => {
-                                        p += 20;
-                                        setProgress(p);
-                                        if (p >= 100) {
-                                            clearInterval(inv);
-                                            setTimeout(() => {
-                                                setIsProcessing(false);
-                                                setShowModal(false);
-                                                alert("SYNC SUCCESS: Audit log has been synchronized with the latest master transactions.");
-                                            }, 500);
-                                        }
-                                    }, 150);
-                                }}
+                                onClick={fetchLogs}
                                 className="bg-white border-2 border-gray-400 px-3 py-1 font-black text-[10px] uppercase hover:bg-gray-100 active:translate-y-0.5 shadow-sm"
                             >
                                 Refresh
@@ -291,7 +299,15 @@ const FileManager = () => {
                                     b.type.toLowerCase().includes(logFilter.toLowerCase()) ||
                                     b.user.toLowerCase().includes(logFilter.toLowerCase())
                                 ).map(b => (
-                                    <tr key={b.id} className="border-b border-gray-100 hover:bg-blue-50/80 cursor-pointer transition-colors group">
+                                    <tr
+                                        key={b.id}
+                                        onClick={() => {
+                                            if (b.type === 'BACKUP') {
+                                                window.open(api.downloadBackupFile(b.filename), '_blank');
+                                            }
+                                        }}
+                                        className="border-b border-gray-100 hover:bg-blue-50/80 cursor-pointer transition-colors group"
+                                    >
                                         <td className="p-4 border-r border-gray-100 font-mono text-blue-700 tracking-tighter uppercase">{b.id}</td>
                                         <td className="p-4 border-r border-gray-100 text-center font-mono text-[10px]">{b.date}</td>
                                         <td className="p-4 border-r border-gray-100 text-center">
@@ -303,7 +319,8 @@ const FileManager = () => {
                                         <td className="p-4 border-r border-gray-100 text-center font-mono opacity-60 italic">{b.size}</td>
                                         <td className="p-4 border-r border-gray-100 font-black italic">{b.user}</td>
                                         <td className="p-4 text-right">
-                                            <div className="flex items-center justify-end gap-2">
+                                            <div className="flex items-center justify-end gap-2 text-xs">
+                                                {b.type === 'BACKUP' && <Download size={12} className="text-blue-500 mr-2 group-hover:block hidden" />}
                                                 <span className="text-[9px] font-black italic text-green-700 tracking-widest">{b.status}</span>
                                                 <CheckCircle2 size={12} className="text-green-600" />
                                             </div>
@@ -327,67 +344,69 @@ const FileManager = () => {
             </div>
 
             {/* Simulation Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                    <div className="w-full max-w-[450px] bg-[#EBE9D8] border-2 border-white shadow-[20px_20px_0_rgba(0,0,0,0.4)] animate-in zoom-in duration-200">
-                        <div className="bg-[#0055E5] text-white px-3 py-1.5 flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                                {isProcessing ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
-                                <span className="text-[10px] font-black uppercase tracking-widest">Protocol Execution: {modalType}</span>
-                            </div>
-                        </div>
-                        <div className="p-8">
-                            <div className="flex items-center gap-6 mb-8">
-                                <div className={`p-4 rounded-full ${isProcessing ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'} shadow-inner`}>
-                                    {modalType === 'IMPORT' ? <LucideFileSpreadsheet size={32} /> :
-                                        modalType === 'EXPORT' ? <Download size={32} /> : <Database size={32} />}
-                                </div>
-                                <div className="flex-1">
-                                    <h3 className="text-xl font-black text-gray-800 uppercase italic tracking-tighter mb-1">
-                                        {isProcessing ? 'Operational Step' : 'Protocol Finalized'}
-                                    </h3>
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Master File Control Unit</p>
+            {
+                showModal && (
+                    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <div className="w-full max-w-[450px] bg-[#EBE9D8] border-2 border-white shadow-[20px_20px_0_rgba(0,0,0,0.4)] animate-in zoom-in duration-200">
+                            <div className="bg-[#0055E5] text-white px-3 py-1.5 flex justify-between items-center">
+                                <div className="flex items-center gap-2">
+                                    {isProcessing ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
+                                    <span className="text-[10px] font-black uppercase tracking-widest">Protocol Execution: {modalType}</span>
                                 </div>
                             </div>
+                            <div className="p-8">
+                                <div className="flex items-center gap-6 mb-8">
+                                    <div className={`p-4 rounded-full ${isProcessing ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'} shadow-inner`}>
+                                        {modalType === 'IMPORT' ? <LucideFileSpreadsheet size={32} /> :
+                                            modalType === 'EXPORT' ? <Download size={32} /> : <Database size={32} />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <h3 className="text-xl font-black text-gray-800 uppercase italic tracking-tighter mb-1">
+                                            {isProcessing ? 'Operational Step' : 'Protocol Finalized'}
+                                        </h3>
+                                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">Master File Control Unit</p>
+                                    </div>
+                                </div>
 
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-end mb-1">
-                                    <span className="text-[10px] font-black text-gray-700 uppercase italic tracking-tighter">{statusText}</span>
-                                    <span className="text-sm font-black text-blue-700">{Math.floor(progress)}%</span>
+                                <div className="space-y-4">
+                                    <div className="flex justify-between items-end mb-1">
+                                        <span className="text-[10px] font-black text-gray-700 uppercase italic tracking-tighter">{statusText}</span>
+                                        <span className="text-sm font-black text-blue-700">{Math.floor(progress)}%</span>
+                                    </div>
+                                    <div className="w-full h-4 bg-white border border-gray-400 p-0.5 shadow-inner">
+                                        <div
+                                            className="h-full bg-gradient-to-r from-blue-700 via-blue-500 to-blue-800 transition-all duration-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]"
+                                            style={{ width: `${progress}%` }}
+                                        ></div>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2 text-[9px] font-bold text-gray-400 uppercase font-mono tracking-tighter">
+                                        <span>TASK_REF: 0xFD_{modalType}</span>
+                                        <span className="text-right">MEM: {Math.floor(progress * 4)}MB LOAD</span>
+                                    </div>
                                 </div>
-                                <div className="w-full h-4 bg-white border border-gray-400 p-0.5 shadow-inner">
-                                    <div
-                                        className="h-full bg-gradient-to-r from-blue-700 via-blue-500 to-blue-800 transition-all duration-300 shadow-[inset_0_1px_0_rgba(255,255,255,0.4)]"
-                                        style={{ width: `${progress}%` }}
-                                    ></div>
-                                </div>
-                                <div className="grid grid-cols-2 gap-2 text-[9px] font-bold text-gray-400 uppercase font-mono tracking-tighter">
-                                    <span>TASK_REF: 0xFD_{modalType}</span>
-                                    <span className="text-right">MEM: {Math.floor(progress * 4)}MB LOAD</span>
-                                </div>
-                            </div>
 
-                            {!isProcessing && (
-                                <button
-                                    onClick={() => setShowModal(false)}
-                                    className="w-full mt-8 bg-[#0055E5] text-white py-3 font-black uppercase tracking-[0.2em] shadow-lg border-b-4 border-r-4 border-blue-900 active:translate-y-1 active:border-0 transition-all font-sans"
-                                >
-                                    Dismiss Protocol
-                                </button>
-                            )}
-                        </div>
-                        <div className="bg-[#D4D0C8] border-t border-gray-400 px-4 py-1.5 flex justify-end">
-                            <div className="flex items-center gap-1">
-                                <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">RSA Status:</span>
-                                <span className={`text-[8px] font-black uppercase ${isProcessing ? 'text-blue-600 animate-pulse' : 'text-green-600'}`}>
-                                    {isProcessing ? 'ENCRYPTING...' : 'SECURE'}
-                                </span>
+                                {!isProcessing && (
+                                    <button
+                                        onClick={() => setShowModal(false)}
+                                        className="w-full mt-8 bg-[#0055E5] text-white py-3 font-black uppercase tracking-[0.2em] shadow-lg border-b-4 border-r-4 border-blue-900 active:translate-y-1 active:border-0 transition-all font-sans"
+                                    >
+                                        Dismiss Protocol
+                                    </button>
+                                )}
+                            </div>
+                            <div className="bg-[#D4D0C8] border-t border-gray-400 px-4 py-1.5 flex justify-end">
+                                <div className="flex items-center gap-1">
+                                    <span className="text-[8px] font-bold text-gray-400 uppercase tracking-widest">RSA Status:</span>
+                                    <span className={`text-[8px] font-black uppercase ${isProcessing ? 'text-blue-600 animate-pulse' : 'text-green-600'}`}>
+                                        {isProcessing ? 'ENCRYPTING...' : 'SECURE'}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            )}
-        </div>
+                )
+            }
+        </div >
     );
 };
 

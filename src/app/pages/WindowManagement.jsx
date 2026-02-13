@@ -5,6 +5,8 @@ import {
     Smartphone, MonitorSmartphone, Check, Loader
 } from 'lucide-react';
 
+import { api } from '../../services/api';
+
 const WindowManagement = () => {
     const defaultSettings = {
         layoutMode: 'Comfortable',
@@ -18,13 +20,57 @@ const WindowManagement = () => {
     const [settings, setSettings] = useState(defaultSettings);
     const [saveStatus, setSaveStatus] = useState('idle');
 
-    // Load settings from local storage on mount
+    const [activeSessions, setActiveSessions] = useState([]);
+
+    // Load settings and sessions on mount
     useEffect(() => {
-        const saved = localStorage.getItem('hrm_window_settings');
-        if (saved) {
-            setSettings(JSON.parse(saved));
-        }
+        const loadData = async () => {
+            try {
+                // Fetch User Preferences
+                const userRes = await api.fetchUserProfile();
+                if (userRes.success && userRes.data.windowPreferences) {
+                    setSettings(JSON.parse(JSON.stringify(userRes.data.windowPreferences))); // Ensure deep copy if needed
+                } else {
+                    // Fallback to local storage if no backend prefs (migration)
+                    const saved = localStorage.getItem('hrm_window_settings');
+                    if (saved) setSettings(JSON.parse(saved));
+                }
+
+                // Fetch Active Sessions
+                const sessionsRes = await api.fetchSessions();
+                if (sessionsRes.success) {
+                    setActiveSessions(sessionsRes.data.map(s => ({
+                        id: s.id,
+                        device: parseUserAgent(s.userAgent),
+                        ip: s.ipAddress || 'Unknown IP',
+                        time: formatRelativeTime(s.lastActive),
+                        isCurrent: s.token === localStorage.getItem('refreshToken')
+                    })));
+                }
+            } catch (err) {
+                console.error("Failed to load window management data", err);
+            }
+        };
+        loadData();
     }, []);
+
+    const parseUserAgent = (ua) => {
+        if (!ua) return 'Unknown Device';
+        if (ua.includes('Mobile')) return 'Mobile Terminal';
+        if (ua.includes('Windows')) return 'Windows Desktop';
+        if (ua.includes('Mac OS')) return 'Mac Workstation';
+        return 'Web Client';
+    };
+
+    const formatRelativeTime = (dateStr) => {
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diff = Math.floor((now - date) / 1000); // seconds
+        if (diff < 60) return 'Active Now';
+        if (diff < 3600) return `${Math.floor(diff / 60)} mins ago`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+        return `${Math.floor(diff / 86400)} days ago`;
+    };
 
     const handleToggle = (key) => {
         setSettings(prev => ({ ...prev, [key]: !prev[key] }));
@@ -43,28 +89,49 @@ const WindowManagement = () => {
         }
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         setSaveStatus('saving');
+        // Save to Local Storage (immediate sync)
         localStorage.setItem('hrm_window_settings', JSON.stringify(settings));
 
-        setTimeout(() => {
+        // Save to Backend
+        try {
+            await api.updateWindowPreferences(settings);
             setSaveStatus('success');
             setTimeout(() => setSaveStatus('idle'), 2000);
-        }, 800);
-    };
-
-    const handleTerminate = () => {
-        if (confirm('Are you sure you want to terminate all sessions and logout?')) {
-            localStorage.removeItem('currentUser');
-            localStorage.removeItem('selectedCompany');
-            window.location.reload(); // Force reload to trigger App.jsx state initialization
+        } catch (err) {
+            console.error("Failed to save preferences", err);
+            setSaveStatus('idle'); // Or error state
         }
     };
 
-    const activeSessions = [
-        { id: 1, device: 'Current Session', ip: '192.168.1.1', time: 'Active Now', icon: <Monitor className="text-blue-600" /> },
-        { id: 2, device: 'Mobile Terminal', ip: '10.0.0.45', time: '2 mins ago', icon: <Smartphone className="text-gray-400" /> },
-    ];
+    const handleTerminate = async () => {
+        if (confirm('Are you sure you want to terminate all other remote sessions?')) {
+            try {
+                const currentToken = localStorage.getItem('refreshToken');
+                const res = await api.terminateSessions(currentToken);
+                if (res.success) {
+                    alert('Remote sessions terminated successfully.');
+                    // Refresh list
+                    const sessionsRes = await api.fetchSessions();
+                    if (sessionsRes.success) {
+                        setActiveSessions(sessionsRes.data.map(s => ({
+                            id: s.id,
+                            device: parseUserAgent(s.userAgent),
+                            ip: s.ipAddress || 'Unknown IP',
+                            time: formatRelativeTime(s.lastActive),
+                            isCurrent: s.token === localStorage.getItem('refreshToken')
+                        })));
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to terminate sessions", err);
+                alert("Failed to terminate sessions.");
+            }
+        }
+    };
+
+
 
     return (
         <div className="flex flex-col h-[calc(100vh-60px)] bg-[#EBE9D8] font-sans">
@@ -177,15 +244,17 @@ const WindowManagement = () => {
 
                             <div className="space-y-3">
                                 {activeSessions.map(session => (
-                                    <div key={session.id} className="flex items-center gap-4 p-3 border border-gray-100 rounded bg-gray-50">
+                                    <div key={session.id} className={`flex items-center gap-4 p-3 border rounded ${session.isCurrent ? 'border-blue-200 bg-blue-50' : 'border-gray-100 bg-gray-50'}`}>
                                         <div className="p-2 bg-white rounded border border-gray-200">
-                                            {session.icon}
+                                            {session.device.includes('Mobile') ? <Smartphone className="text-gray-400" /> : <Monitor className={session.isCurrent ? "text-blue-600" : "text-gray-500"} />}
                                         </div>
                                         <div className="flex-1">
-                                            <p className="text-xs font-bold text-gray-800 uppercase">{session.device}</p>
+                                            <p className="text-xs font-bold text-gray-800 uppercase">
+                                                {session.device} {session.isCurrent && <span className="text-blue-600 text-[9px]">(Current)</span>}
+                                            </p>
                                             <p className="text-[10px] font-mono text-gray-400">{session.ip}</p>
                                         </div>
-                                        <div className="text-[10px] font-bold text-green-600 bg-green-50 px-2 py-1 rounded border border-green-100 uppercase">
+                                        <div className={`text-[10px] font-bold px-2 py-1 rounded border uppercase ${session.isCurrent ? 'text-blue-600 bg-blue-100 border-blue-200' : 'text-green-600 bg-green-50 border-green-100'}`}>
                                             {session.time}
                                         </div>
                                     </div>
