@@ -1,0 +1,11 @@
+#root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  isolation: isolate;
+}
+
+/* Remove default Vite/React generic styles that might interfere */
+/* Retain empty file or minimal resets if preferred, but specifically unlocking #root is the goal */
