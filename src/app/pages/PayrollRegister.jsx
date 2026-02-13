@@ -32,20 +32,38 @@ const PayrollRegister = () => {
 
     // Filter Options state
     const [filterOptions, setFilterOptions] = useState({
-        payPeriod: '3',
+        payPeriod: '2',
         ofYear: '2026',
-        paySeries: '',
-        payGrade: '',
-        employee: '',
-        department: '',
-        branch: '',
-        location: ''
+        paySeries: '-- ALL ACTIVE SERIES --',
+        payGrade: '-- ALL SERVICE GRADES --',
+        employee: '-- ALL STAFF MEMBERS --',
+        department: '-- ALL COST CENTERS --',
+        branch: '-- ALL REGIONAL BRANCHES --'
     });
 
     const [lastUpdated, setLastUpdated] = useState(new Date().toLocaleTimeString());
     const [isCompiling, setIsCompiling] = useState(false);
     const [employees, setEmployees] = useState([]);
     const [departments, setDepartments] = useState([]);
+
+    // Merge standard categories with dynamic data from DB
+    const dynamicOptions = React.useMemo(() => {
+        const standardPaySeries = ['Weekly (W01)', 'Bi-Weekly (B01)', 'Monthly (M01)'];
+        const standardPayGrades = ['GRADE 1', 'GRADE 2', 'GRADE 3', 'EXECUTIVE'];
+        const standardBranches = ['Kingston HQ', 'Montego Bay', 'Ocho Rios'];
+
+        const dbPaySeries = employees.map(e => e.payFrequency).filter(Boolean);
+        const dbPayGrades = employees.map(e => e.designation).filter(Boolean);
+        const dbBranches = employees.map(e => e.city || e.parish || e.branch).filter(Boolean);
+        const dbDepts = departments.map(d => d.name);
+
+        return {
+            paySeries: ['-- ALL ACTIVE SERIES --', ...new Set([...standardPaySeries, ...dbPaySeries])],
+            payGrade: ['-- ALL SERVICE GRADES --', ...new Set([...standardPayGrades, ...dbPayGrades])],
+            branch: ['-- ALL REGIONAL BRANCHES --', ...new Set([...standardBranches, ...dbBranches])],
+            department: ['-- ALL COST CENTERS --', ...new Set([...dbDepts])]
+        };
+    }, [employees, departments]);
 
     React.useEffect(() => {
         const fetchData = async () => {
@@ -138,7 +156,19 @@ const PayrollRegister = () => {
                 }
 
                 if (filterOptions.branch && !filterOptions.branch.includes('ALL')) {
-                    filteredData = filteredData.filter(p => p.employee?.branch === filterOptions.branch);
+                    filteredData = filteredData.filter(p =>
+                        p.employee?.city === filterOptions.branch ||
+                        p.employee?.parish === filterOptions.branch ||
+                        p.employee?.branch === filterOptions.branch
+                    );
+                }
+
+                if (filterOptions.paySeries && !filterOptions.paySeries.includes('ALL')) {
+                    filteredData = filteredData.filter(p => p.employee?.payFrequency === filterOptions.paySeries);
+                }
+
+                if (filterOptions.payGrade && !filterOptions.payGrade.includes('ALL')) {
+                    filteredData = filteredData.filter(p => p.employee?.designation === filterOptions.payGrade);
                 }
 
                 if (filterOptions.employee && !filterOptions.employee.includes('ALL')) {
@@ -165,12 +195,12 @@ const PayrollRegister = () => {
                     "Period," + filterOptions.payPeriod + "\n" +
                     "Year," + filterOptions.ofYear + "\n" +
                     "Sequence," + orderOptions.primaryOrder + " / " + orderOptions.secondaryOrder + "\n" +
-                    "Employee ID,Name,Department,Branch,Gross Salary,Deductions,Tax,Net Pay,Status\n";
+                    "Employee ID,Name,Department,Location,Gross Salary,Deductions,Tax,Net Pay,Status\n";
 
                 const csvRows = filteredData.map(p => {
                     const name = `"${p.employee?.firstName} ${p.employee?.lastName}"`;
                     const dept = `"${p.employee?.department?.name || p.employee?.department || ''}"`;
-                    const branch = `"${p.employee?.branch || ''}"`;
+                    const branch = `"${p.employee?.city || p.employee?.parish || p.employee?.branch || ''}"`;
                     return `${p.employee?.employeeId || ''},${name},${dept},${branch},${p.grossSalary},${p.deductions},${p.tax},${p.netSalary},${p.status}`;
                 }).join("\n");
 
@@ -331,11 +361,11 @@ const PayrollRegister = () => {
                                     </div>
 
                                     {[
-                                        { id: 'paySeries', label: 'Pay Series', options: ['-- ALL ACTIVE SERIES --', 'Weekly (W01)', 'Bi-Weekly (B01)', 'Monthly (M01)'] },
-                                        { id: 'payGrade', label: 'Hierarchy', options: ['-- ALL SERVICE GRADES --', 'GRADE 1', 'GRADE 2', 'GRADE 3', 'EXECUTIVE'] },
+                                        { id: 'paySeries', label: 'Pay Series', options: dynamicOptions.paySeries },
+                                        { id: 'payGrade', label: 'Hierarchy', options: dynamicOptions.payGrade },
                                         { id: 'employee', label: 'Personnel', options: ['-- ALL STAFF MEMBERS --', ...employees.map(e => `${e.firstName} ${e.lastName} [${e.employeeId}]`)] },
-                                        { id: 'department', label: 'Unit / Dept', options: ['-- ALL COST CENTERS --', ...departments.map(d => d.name)] },
-                                        { id: 'branch', label: 'Location', options: ['-- ALL REGIONAL BRANCHES --', 'Kingston HQ', 'Montego Bay', 'Ocho Rios'] }
+                                        { id: 'department', label: 'Unit / Dept', options: dynamicOptions.department },
+                                        { id: 'branch', label: 'Location', options: dynamicOptions.branch }
                                     ].map(filter => (
                                         <div key={filter.id} className="flex flex-col gap-1.5">
                                             <label className="text-gray-500 font-black uppercase text-[9px] tracking-[0.2em]">{filter.label}</label>

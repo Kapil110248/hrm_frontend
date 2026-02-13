@@ -1,18 +1,43 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Upload, CheckCircle, AlertCircle, FileText, Database, ShieldCheck, LogOut, RefreshCw } from 'lucide-react';
+import { Upload, CheckCircle, AlertCircle, FileText, Database, ShieldCheck, LogOut, RefreshCw, ChevronDown } from 'lucide-react';
+import { api } from '../../services/api';
 
 const PayrollUpdate = () => {
     const navigate = useNavigate();
     const [isUpdating, setIsUpdating] = useState(false);
     const [isFinished, setIsFinished] = useState(false);
+    const [period, setPeriod] = useState('2026-02');
+    const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
 
-    const handleUpdate = () => {
-        setIsUpdating(true);
-        setTimeout(() => {
+    const handleUpdate = async () => {
+        if (!selectedCompany.id) {
+            alert("No company selected. Please select a company first.");
+            return;
+        }
+
+        try {
+            setIsUpdating(true);
+            const response = await api.finalizeBatch({
+                companyId: selectedCompany.id,
+                period: period
+            });
+
+            if (response.success) {
+                setTimeout(() => {
+                    setIsUpdating(false);
+                    setIsFinished(true);
+                    alert(`✅ SUCCESS: ${response.data.count} records finalized for ${period}.`);
+                }, 1500);
+            } else {
+                alert("Update failed: " + response.message);
+                setIsUpdating(false);
+            }
+        } catch (err) {
+            console.error(err);
+            alert("An error occurred during the update process.");
             setIsUpdating(false);
-            setIsFinished(true);
-        }, 3000);
+        }
     };
 
     return (
@@ -55,18 +80,30 @@ const PayrollUpdate = () => {
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
                                 <div className="p-4 bg-gray-50 border border-gray-300 space-y-3">
-                                    <h3 className="font-black text-gray-400 uppercase text-[9px]">Posting Destination</h3>
-                                    <div className="flex items-center gap-3">
-                                        <Database className="text-blue-600 shrink-0" size={20} />
-                                        <div className="font-black italic text-gray-700 text-[11px] sm:text-xs">PR-MASTER-DB-2026</div>
+                                    <h3 className="font-black text-gray-400 uppercase text-[9px]">Target Pay Period</h3>
+                                    <div className="flex items-center gap-3 bg-white border border-gray-200 px-3 py-1 shadow-inner rounded-sm ring-1 ring-gray-200">
+                                        <RefreshCw size={14} className="text-blue-600" />
+                                        <input
+                                            type="month"
+                                            value={period}
+                                            onChange={(e) => setPeriod(e.target.value)}
+                                            className="bg-transparent outline-none font-black text-blue-900 text-xs w-full uppercase"
+                                        />
                                     </div>
                                 </div>
                                 <div className="p-4 bg-gray-50 border border-gray-300 space-y-3">
-                                    <h3 className="font-black text-gray-400 uppercase text-[9px]">Security Protocol</h3>
+                                    <h3 className="font-black text-gray-400 uppercase text-[9px]">Posting Destination</h3>
                                     <div className="flex items-center gap-3">
-                                        <ShieldCheck className="text-green-600 shrink-0" size={20} />
-                                        <div className="font-black italic text-gray-700 text-[11px] sm:text-xs">ENCRYPTED KEY SIGNED</div>
+                                        <Database className="text-blue-600 shrink-0" size={20} />
+                                        <div className="font-black italic text-gray-700 text-[11px] sm:text-xs">PR-MASTER-DB-{period.split('-')[0]}</div>
                                     </div>
+                                </div>
+                            </div>
+                            <div className="p-4 bg-gray-50 border border-gray-300 space-y-3">
+                                <h3 className="font-black text-gray-400 uppercase text-[9px]">Security Protocol</h3>
+                                <div className="flex items-center gap-3">
+                                    <ShieldCheck className="text-green-600 shrink-0" size={20} />
+                                    <div className="font-black italic text-gray-700 text-[11px] sm:text-xs">ENCRYPTED KEY SIGNED - {selectedCompany.code || 'SYS'}</div>
                                 </div>
                             </div>
 
