@@ -55,7 +55,7 @@ const PayDisbursement = () => {
     // Dynamic Period Logic
     const getCurrentPeriod = () => {
         const d = new Date();
-        return d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-');
+        return d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
     };
     const [period, setPeriod] = useState(getCurrentPeriod());
     const [periods, setPeriods] = useState([]);
@@ -65,7 +65,7 @@ const PayDisbursement = () => {
         const today = new Date();
         for (let i = 0; i < 12; i++) {
             const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-            const value = d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-');
+            const value = d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
             months.push(value);
         }
         setPeriods(months);

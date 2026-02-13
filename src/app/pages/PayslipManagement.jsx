@@ -48,13 +48,13 @@ const Modal = ({ isOpen, onClose, title, children }) => {
 const PayslipManagement = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
-    const [selectedPeriod, setSelectedPeriod] = useState('Feb-2026');
+    const [selectedPeriod, setSelectedPeriod] = useState(new Date().toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase());
+    const [periods, setPeriods] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
+    const [payslips, setPayslips] = useState([]);
     const [generating, setGenerating] = useState(false);
     const [sending, setSending] = useState(null); // ID of payslip being sent
-    const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
-
-    const [payslips, setPayslips] = useState([]);
     const [toast, setToast] = useState(null);
     const [showGenerateModal, setShowGenerateModal] = useState(false);
 
@@ -88,6 +88,33 @@ const PayslipManagement = () => {
             setLoading(false);
         }
     };
+
+    const fetchPeriods = async () => {
+        if (!selectedCompany.id) return;
+        try {
+            const response = await api.fetchPayrollBatches(selectedCompany.id);
+            if (response.success && response.data.length > 0) {
+                // Ensure all periods are uppercase for consistency in the UI
+                const normalizedBatches = response.data.map(b => ({ ...b, period: b.period.toUpperCase() }));
+                setPeriods(normalizedBatches);
+                setSelectedPeriod(normalizedBatches[0].period);
+            } else {
+                // Fallback periods if no batches exist
+                const months = [];
+                const today = new Date();
+                for (let i = 0; i < 6; i++) {
+                    months.push({ period: new Date(today.getFullYear(), today.getMonth() - i, 1).toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase() });
+                }
+                setPeriods(months);
+            }
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    useEffect(() => {
+        fetchPeriods();
+    }, [selectedCompany.id]);
 
     useEffect(() => {
         fetchPayslips();
@@ -142,18 +169,18 @@ const PayslipManagement = () => {
                     <div className="bg-yellow-50 border border-yellow-200 p-3 rounded text-yellow-900 text-xs flex items-start gap-2">
                         <AlertTriangle size={16} className="shrink-0 mt-0.5" />
                         <div>
-                             This will calculate payroll and generate payslips for ALL employees for <strong>{selectedPeriod}</strong>. Existing records may be overwritten.
+                            This will calculate payroll and generate payslips for ALL employees for <strong>{selectedPeriod}</strong>. Existing records may be overwritten.
                         </div>
                     </div>
-                    
+
                     <div className="flex justify-end gap-2 mt-2">
-                        <button 
+                        <button
                             onClick={() => setShowGenerateModal(false)}
                             className="px-4 py-2 bg-gray-200 text-gray-700 font-bold uppercase text-[10px] rounded-sm hover:bg-gray-300 transition-colors"
                         >
                             Cancel
                         </button>
-                        <button 
+                        <button
                             onClick={handleGenerate}
                             className="px-4 py-2 bg-blue-800 text-white font-bold uppercase text-[10px] rounded-sm hover:bg-blue-900 transition-colors shadow-sm"
                         >
@@ -176,9 +203,9 @@ const PayslipManagement = () => {
                         onChange={(e) => setSelectedPeriod(e.target.value)}
                         className="text-xs font-bold p-1 border border-gray-400 outline-none"
                     >
-                        <option value="Feb-2026">February 2026</option>
-                        <option value="Jan-2026">January 2026</option>
-                        <option value="Dec-2025">December 2025</option>
+                        {periods.map(p => (
+                            <option key={p.period} value={p.period}>{p.period}</option>
+                        ))}
                     </select>
                 </div>
             </div>
@@ -248,12 +275,13 @@ const PayslipManagement = () => {
                                         </td>
                                         <td className="p-3 border-r border-gray-100 text-gray-500 italic">{row.period}</td>
                                         <td className="p-3 border-r border-gray-100 font-mono text-gray-400 group-hover:text-blue-600 transition-colors">
-                                            TRN-XX-{row.trn.slice(-4)}
+                                            {row.trn && row.trn !== 'XXX-XXX-XXX' ? `***-***-${row.trn.slice(-3)}` : 'SECURE-DATA-MASKED'}
                                         </td>
                                         <td className="p-3 border-r border-gray-100">
                                             <span className={`px-3 py-1 text-[9px] font-black uppercase italic border shadow-sm ${row.status === 'Sent' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                                                 row.status === 'Generated' ? 'bg-green-50 text-green-700 border-green-200' :
-                                                    'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                                    row.status === 'Processed' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                                                        'bg-gray-50 text-gray-500 border-gray-200'}`}>
                                                 {row.status}
                                             </span>
                                         </td>

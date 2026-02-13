@@ -10,7 +10,7 @@ const PayrollWizard = () => {
 
     // Wizard State
     const [selection, setSelection] = useState('full');
-    const [period, setPeriod] = useState(new Date().toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-'));
+    const [period, setPeriod] = useState(new Date().toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase());
     const [periods, setPeriods] = useState([]);
     const [selectedDepts, setSelectedDepts] = useState([]);
     const [departments, setDepartments] = useState([]);
@@ -33,7 +33,7 @@ const PayrollWizard = () => {
         for (let i = 0; i < 12; i++) {
             const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
             const label = d.toLocaleString('default', { month: 'long', year: 'numeric' });
-            const value = d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-');
+            const value = d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
             months.push({ label, value });
         }
         setPeriods(months);

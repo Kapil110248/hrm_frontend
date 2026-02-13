@@ -7,12 +7,44 @@ const PayrollUpdate = () => {
     const navigate = useNavigate();
     const [isUpdating, setIsUpdating] = useState(false);
     const [isFinished, setIsFinished] = useState(false);
-    const [period, setPeriod] = useState('2026-02');
+    const [period, setPeriod] = useState('');
+    const [loading, setLoading] = useState(true);
     const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
+
+    React.useEffect(() => {
+        const fetchLatestBatch = async () => {
+            if (!selectedCompany.id) return;
+            try {
+                setLoading(true);
+                const response = await api.fetchPayrollBatches(selectedCompany.id);
+                if (response.success && response.data.length > 0) {
+                    // Find the first 'Calculated' batch (which is usually the latest)
+                    const calculatedBatch = response.data.find(b => b.status === 'Calculated');
+                    if (calculatedBatch) {
+                        setPeriod(calculatedBatch.period);
+                    } else if (response.data.length > 0) {
+                        // Fallback to the latest period if no 'Calculated' batches exist
+                        setPeriod(response.data[0].period);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch batches:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchLatestBatch();
+    }, [selectedCompany.id]);
 
     const handleUpdate = async () => {
         if (!selectedCompany.id) {
             alert("No company selected. Please select a company first.");
+            return;
+        }
+
+        if (!period) {
+            alert("No active payroll period found for finalization.");
             return;
         }
 
@@ -24,11 +56,10 @@ const PayrollUpdate = () => {
             });
 
             if (response.success) {
-                setTimeout(() => {
-                    setIsUpdating(false);
-                    setIsFinished(true);
-                    alert(`✅ SUCCESS: ${response.data.count} records finalized for ${period}.`);
-                }, 1500);
+                setIsUpdating(false);
+                setIsFinished(true);
+                // Notification already handled by the success screen logic, 
+                // but we could still alert if needed for immediate feedback.
             } else {
                 alert("Update failed: " + response.message);
                 setIsUpdating(false);
@@ -84,9 +115,9 @@ const PayrollUpdate = () => {
                                     <div className="flex items-center gap-3 bg-white border border-gray-200 px-3 py-1 shadow-inner rounded-sm ring-1 ring-gray-200">
                                         <RefreshCw size={14} className="text-blue-600" />
                                         <input
-                                            type="month"
+                                            type="text"
                                             value={period}
-                                            onChange={(e) => setPeriod(e.target.value)}
+                                            readOnly={true}
                                             className="bg-transparent outline-none font-black text-blue-900 text-xs w-full uppercase"
                                         />
                                     </div>

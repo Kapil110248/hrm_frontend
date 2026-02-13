@@ -7,17 +7,8 @@ const GlobalSearch = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [category, setCategory] = useState('All');
 
-    // Mock Data for Search
-    const searchData = [
-        { id: 1, type: 'Employee', title: 'John Brown', subtitle: 'EMP001 - Sales Manager', path: '/employees' },
-        { id: 2, type: 'Employee', title: 'Sarah Smith', subtitle: 'EMP002 - Senior Develper', path: '/employees' },
-        { id: 3, type: 'Page', title: 'Payroll Register', subtitle: 'Processing > Payroll Register', path: '/payroll/register' },
-        { id: 4, type: 'Page', title: 'Bank Details', subtitle: 'Masters > Bank Details', path: '/bank/details' },
-        { id: 5, type: 'Report', title: 'P24 Report', subtitle: 'Statutory Reports > P24', path: '/reports/p24' },
-        { id: 6, type: 'Setting', title: 'Company Settings', subtitle: 'Admin > Configuration', path: '/company/settings' },
-        { id: 7, type: 'Employee', title: 'David Miller', subtitle: 'EMP009 - Operations', path: '/employees' },
-        { id: 8, type: 'Transaction', title: 'TRX-9001', subtitle: 'Posted Transaction - John Brown', path: '/processing/posted-register' },
-    ];
+    // Mock Data for Search (CLEARED TO REMOVE PLACEHOLDERS)
+    const searchData = [];
 
     const filteredResults = searchData.filter(item => {
         const matchesTerm = item.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

@@ -50,7 +50,7 @@ const PostTransactions = () => {
     const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
 
     const [filters, setFilters] = useState({
-        period: new Date().toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-'),
+        period: new Date().toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase(),
         type: 'All'
     });
 
@@ -106,7 +106,7 @@ const PostTransactions = () => {
         for (let i = 0; i < 12; i++) {
             const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
             const label = d.toLocaleString('default', { month: 'long', year: 'numeric' });
-            const value = d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-');
+            const value = d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
             months.push({ label, value });
         }
         setPeriods(months);

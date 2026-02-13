@@ -32,8 +32,8 @@ const SalaryManagement = () => {
                     allowances: (parseFloat(r.grossSalary) - parseFloat(r.netSalary) + parseFloat(r.deductions)).toString(),
                     deductions: r.deductions.toString(),
                     netSalary: r.netSalary.toString(),
-                    month: r.period.split(' ')[0],
-                    year: r.period.split(' ')[1]
+                    month: r.period.split('-')[0], // Assuming MMM-YYYY
+                    year: r.period.split('-')[1]
                 })));
             }
         } catch (err) {
@@ -98,7 +98,7 @@ const SalaryManagement = () => {
         try {
             const dataToSave = {
                 employeeId: formData.employeeId,
-                period: `${formData.month} ${formData.year}`,
+                period: `${formData.month.substring(0, 3).toUpperCase()}-${formData.year}`,
                 grossSalary: formData.basicSalary,
                 netSalary: formData.netSalary,
                 deductions: formData.deductions,

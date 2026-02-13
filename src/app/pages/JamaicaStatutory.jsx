@@ -23,13 +23,9 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
 
             setLoading(true);
             try {
-                // Convert YYYY-MM to Month-YYYY for backend (e.g. Feb-2026)
-                const date = new Date(period + '-01');
-                const periodParam = `${date.toLocaleString('default', { month: 'short' })}-${date.getFullYear()}`;
-
                 const res = await api.fetchPayrolls({
                     companyId: c.id,
-                    period: periodParam
+                    period: period.toUpperCase() // Ensure uppercase
                 });
 
                 if (res.success) {
@@ -64,7 +60,7 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
                 { label: 'NIS Employee (3%)', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.nis || 0), 0).toFixed(2) },
                 // Calculate Employer NIS (3% of Gross)
                 { label: 'NIS Employer (3%)', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + (parseFloat(p.grossSalary || 0) * 0.03), 0).toFixed(2) },
-                 // Use stored NHT for Employee
+                // Use stored NHT for Employee
                 { label: 'NHT Employee (2%)', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.nht || 0), 0).toFixed(2) },
                 // Calculate Employer NHT (3% of Gross)
                 { label: 'NHT Employer (3%)', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + (parseFloat(p.grossSalary || 0) * 0.03), 0).toFixed(2) }
@@ -79,26 +75,32 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
                 // Ed Tax Employee (2.25%) - Use stored value
                 { label: 'Education Tax (EE 2.25%)', category: 'Taxation', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.edTax || 0), 0).toFixed(2) },
                 // Ed Tax Employer (3.5%) - Calculated on (Gross - NIS) to match backend logic for Ed Tax Base
-                { label: 'Education Tax (ER 3.5%)', category: 'Taxation', value: (data) => data.reduce((sum, p) => {
-                    const gross = parseFloat(p.grossSalary || 0);
-                    const nis = parseFloat(p.nis || 0);
-                    const statIncome = gross - nis; 
-                    return sum + (statIncome > 0 ? statIncome * 0.035 : 0);
-                }, 0).toFixed(2) },
+                {
+                    label: 'Education Tax (ER 3.5%)', category: 'Taxation', value: (data) => data.reduce((sum, p) => {
+                        const gross = parseFloat(p.grossSalary || 0);
+                        const nis = parseFloat(p.nis || 0);
+                        const statIncome = gross - nis;
+                        return sum + (statIncome > 0 ? statIncome * 0.035 : 0);
+                    }, 0).toFixed(2)
+                },
                 // NIS Total (EE stored + ER calculated)
-                { label: 'NIS Total (6%)', category: 'Social Security', value: (data) => data.reduce((sum, p) => {
-                    const gross = parseFloat(p.grossSalary || 0);
-                    const ee = parseFloat(p.nis || 0);
-                    const er = gross * 0.03;
-                    return sum + ee + er;
-                }, 0).toFixed(2) },
+                {
+                    label: 'NIS Total (6%)', category: 'Social Security', value: (data) => data.reduce((sum, p) => {
+                        const gross = parseFloat(p.grossSalary || 0);
+                        const ee = parseFloat(p.nis || 0);
+                        const er = gross * 0.03;
+                        return sum + ee + er;
+                    }, 0).toFixed(2)
+                },
                 // NHT Total (EE stored + ER calculated)
-                { label: 'NHT Total (5%)', category: 'Housing', value: (data) => data.reduce((sum, p) => {
-                    const gross = parseFloat(p.grossSalary || 0);
-                    const ee = parseFloat(p.nht || 0);
-                    const er = gross * 0.03;
-                    return sum + ee + er;
-                }, 0).toFixed(2) },
+                {
+                    label: 'NHT Total (5%)', category: 'Housing', value: (data) => data.reduce((sum, p) => {
+                        const gross = parseFloat(p.grossSalary || 0);
+                        const ee = parseFloat(p.nht || 0);
+                        const er = gross * 0.03;
+                        return sum + ee + er;
+                    }, 0).toFixed(2)
+                },
                 // HEART (3% of Gross) - Employer only
                 { label: 'HEART Trust (3%)', category: 'Social Security', value: (data) => data.reduce((sum, p) => sum + (parseFloat(p.grossSalary || 0) * 0.03), 0).toFixed(2) }
             ]
