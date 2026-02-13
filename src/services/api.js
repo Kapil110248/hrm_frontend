@@ -67,6 +67,10 @@ export const api = {
         return apiClient.get(`/audit?limit=${limit}`);
     },
 
+    fetchLiveAttendance: async (companyId) => {
+        const query = companyId ? `?companyId=${companyId}` : '';
+        return apiClient.get(`/attendance/live${query}`);
+    },
     // Attendance
     fetchAttendance: async (params) => {
         const query = new URLSearchParams(params).toString();
@@ -152,6 +156,9 @@ export const api = {
     },
     postTransactions: async (data) => {
         return apiClient.post('/transactions/post', data);
+    },
+    voidTransaction: async (id, data) => {
+        return apiClient.post(`/transactions/${id}/void`, data);
     },
     fetchTransactionRegister: async (params) => {
         const query = new URLSearchParams(params).toString();

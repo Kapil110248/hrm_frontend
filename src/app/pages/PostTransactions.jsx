@@ -1,7 +1,46 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, RefreshCw, CheckSquare, Square, Filter, Send, AlertTriangle, Loader2 } from 'lucide-react';
+import { Save, RefreshCw, CheckSquare, Square, Filter, Send, AlertTriangle, Loader2, X, CheckCircle, AlertCircle } from 'lucide-react';
 import { api } from '../../services/api';
+
+const Toast = ({ message, type, onClose }) => {
+    useEffect(() => {
+        const timer = setTimeout(onClose, 3000);
+        return () => clearTimeout(timer);
+    }, [onClose]);
+
+    const bgColors = {
+        success: 'bg-green-600',
+        error: 'bg-red-600',
+        info: 'bg-blue-600'
+    };
+
+    return (
+        <div className={`fixed bottom-4 right-4 ${bgColors[type] || 'bg-gray-800'} text-white px-4 py-3 rounded shadow-lg flex items-center gap-3 z-50 animate-fade-in-up`}>
+            {type === 'success' && <CheckCircle size={18} />}
+            {type === 'error' && <AlertCircle size={18} />}
+            <span className="font-bold text-xs uppercase tracking-wide">{message}</span>
+            <button onClick={onClose} className="ml-2 hover:bg-white/20 rounded-full p-1"><X size={14} /></button>
+        </div>
+    );
+};
+
+const Modal = ({ isOpen, onClose, title, children }) => {
+    if (!isOpen) return null;
+    return (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fade-in">
+            <div className="bg-white w-full max-w-sm rounded shadow-2xl border border-gray-200 overflow-hidden transform transition-all scale-100">
+                <div className="bg-[#D4D0C8] px-4 py-2 border-b border-gray-300 flex justify-between items-center">
+                    <h3 className="font-black text-gray-700 uppercase text-xs tracking-wider">{title}</h3>
+                    <button onClick={onClose} className="text-gray-500 hover:text-red-600 transition-colors"><X size={16} /></button>
+                </div>
+                <div className="p-4 bg-[#EBE9D8]">
+                    {children}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 const PostTransactions = () => {
     const navigate = useNavigate();
@@ -17,6 +56,14 @@ const PostTransactions = () => {
 
     const [pendingTransactions, setPendingTransactions] = useState([]);
     const [selectedIds, setSelectedIds] = useState([]);
+    
+    // UI States
+    const [toast, setToast] = useState(null);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
+
+    const showToast = (message, type = 'success') => {
+        setToast({ message, type });
+    };
 
     const fetchPending = async () => {
         if (!selectedCompany.id) return;
@@ -46,6 +93,7 @@ const PostTransactions = () => {
             }
         } catch (err) {
             console.error(err);
+            showToast("Failed to fetch pending transactions.", "error");
         } finally {
             setLoading(false);
         }
@@ -71,33 +119,35 @@ const PostTransactions = () => {
         }
     };
 
-    const handlePostSelected = async () => {
+    const initiatePost = () => {
         if (selectedIds.length === 0) {
-            alert("No transactions selected.");
+            showToast("No transactions selected.", "error");
             return;
         }
-        const confirm = window.confirm(`PROCEED TO POST ${selectedIds.length} TRANSACTIONS?\n\nThis will finalize them into the company register and they will no longer be editable.`);
-        if (confirm) {
-            try {
-                setPosting(true);
-                const response = await api.postTransactions({
-                    transactionIds: selectedIds,
-                    postedBy: activeUser.email,
-                    companyId: selectedCompany.id
-                });
+        setShowConfirmModal(true);
+    };
 
-                if (response.success) {
-                    alert(`Successfully posted ${response.data.count} transactions!`);
-                    fetchPending();
-                } else {
-                    alert(response.message || "Failed to post transactions.");
-                }
-            } catch (err) {
-                console.error(err);
-                alert("Error during posting process.");
-            } finally {
-                setPosting(false);
+    const confirmPost = async () => {
+        setShowConfirmModal(false);
+        try {
+            setPosting(true);
+            const response = await api.postTransactions({
+                transactionIds: selectedIds,
+                postedBy: activeUser.email,
+                companyId: selectedCompany.id
+            });
+
+            if (response.success) {
+                showToast(`Successfully posted ${response.data.count} transactions!`, "success");
+                fetchPending();
+            } else {
+                showToast(response.message || "Failed to post transactions.", "error");
             }
+        } catch (err) {
+            console.error(err);
+            showToast("Error during posting process.", "error");
+        } finally {
+            setPosting(false);
         }
     };
 
@@ -110,7 +160,36 @@ const PostTransactions = () => {
         .reduce((sum, t) => sum + t.amount, 0);
 
     return (
-        <div className="h-[calc(100vh-70px)] flex flex-col bg-[#EBE9D8] font-sans overflow-hidden">
+        <div className="h-[calc(100vh-70px)] flex flex-col bg-[#EBE9D8] font-sans overflow-hidden relative">
+            {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+
+            <Modal isOpen={showConfirmModal} onClose={() => setShowConfirmModal(false)} title="Confirm Posting">
+                <div className="flex flex-col gap-4">
+                    <div className="text-xs text-gray-700 font-medium">
+                        You are about to post <span className="font-black text-blue-700">{selectedIds.length}</span> transactions.
+                        <br/><br/>
+                        Total Value: <span className="font-black text-blue-700">${formatCurrency(totalSelected)}</span>
+                        <br/><br/>
+                        <span className="text-red-600 font-bold uppercase italic text-[10px]">
+                            Warning: This action cannot be undone. Items will be locked.
+                        </span>
+                    </div>
+                    <div className="flex justify-end gap-2 mt-2">
+                        <button 
+                            onClick={() => setShowConfirmModal(false)}
+                            className="px-4 py-2 bg-gray-200 text-gray-700 font-bold uppercase text-[10px] rounded-sm hover:bg-gray-300 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                        <button 
+                            onClick={confirmPost}
+                            className="px-4 py-2 bg-blue-600 text-white font-bold uppercase text-[10px] rounded-sm hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2"
+                        >
+                            <Send size={12} /> Confirm Post
+                        </button>
+                    </div>
+                </div>
+            </Modal>
 
             {/* 1. Header & Filters */}
             <div className="bg-[#EBE9D8] border-b border-white p-3 shadow-sm shrink-0">
@@ -228,17 +307,21 @@ const PostTransactions = () => {
                         <span className="text-[9px] text-gray-500">Commitment Value</span>
                         <span className="text-lg text-blue-800 tracking-tighter">${formatCurrency(totalSelected)}</span>
                     </div>
+                     <div className="flex flex-col border-l border-gray-400 pl-6 opacity-50">
+                        <span className="text-[9px] text-gray-500">Total Pending</span>
+                        <span className="text-xs text-gray-600 tracking-tighter">${formatCurrency(pendingTransactions.reduce((sum, t) => sum + t.amount, 0))}</span>
+                    </div>
                 </div>
 
                 <div className="flex gap-3">
                     <button
-                        onClick={() => setSelectedIds([])}
-                        className="flex items-center gap-2 px-6 py-2 bg-[#EBE9D8] border-2 border-white border-r-gray-400 border-b-gray-400 shadow-md active:translate-y-0.5 active:shadow-inner text-[10px] font-black italic hover:bg-white text-gray-600 uppercase transition-all"
+                        onClick={handleSelectAll}
+                        className="flex items-center gap-2 px-4 py-2 bg-[#EBE9D8] border-2 border-white border-r-gray-400 border-b-gray-400 shadow-md active:translate-y-0.5 active:shadow-inner text-[10px] font-black italic hover:bg-white text-gray-600 uppercase transition-all"
                     >
-                        Invert Selection
+                        {selectedIds.length === pendingTransactions.length ? 'Deselect All' : 'Select All'}
                     </button>
                     <button
-                        onClick={handlePostSelected}
+                        onClick={initiatePost}
                         disabled={selectedIds.length === 0 || posting}
                         className={`flex items-center gap-2 px-10 py-3 border-2 shadow-xl text-[11px] font-black italic uppercase transition-all tracking-widest ${selectedIds.length > 0 && !posting ? 'bg-green-700 text-white border-green-400 border-r-green-900 border-b-green-900 border-l-green-400 border-t-green-400 hover:bg-green-600 active:translate-y-1 active:shadow-inner active:border-b-0 active:border-r-0' : 'bg-gray-300 text-gray-500 border-gray-400 cursor-not-allowed opacity-50'}`}
                     >
