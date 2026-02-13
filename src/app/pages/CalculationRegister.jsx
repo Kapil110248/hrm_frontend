@@ -1,35 +1,54 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Search, Printer, Download, LogOut, ChevronDown, CheckCircle, ListFilter, X } from 'lucide-react';
+import { FileText, Search, Printer, Download, LogOut, ChevronDown, CheckCircle, ListFilter, X, Loader2 } from 'lucide-react';
+import { api } from '../../services/api';
 
 const CalculationRegister = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = React.useState('');
     const [statusFilter, setStatusFilter] = React.useState('All Status');
     const [periodFilter, setPeriodFilter] = React.useState('ALL'); // 'ALL' or 'CURRENT'
+    const [calculations, setCalculations] = React.useState([]);
+    const [loading, setLoading] = React.useState(false);
+    const [selectedCompany] = React.useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
 
-    const calculations = [
-        { id: 'CALC-501', period: 'Week 4 / 2026', totalGross: '2,400,000.00', totalTax: '180,000.00', status: 'Verified', isCurrent: true },
-        { id: 'CALC-500', period: 'Week 3 / 2026', totalGross: '2,350,000.00', totalTax: '178,000.00', status: 'Posted', isCurrent: false },
-        { id: 'CALC-499', period: 'Week 2 / 2026', totalGross: '2,320,000.00', totalTax: '175,000.00', status: 'Posted', isCurrent: false },
-    ];
+    const fetchBatches = async () => {
+        if (!selectedCompany.id) return;
+        try {
+            setLoading(true);
+            const response = await api.fetchPayrollBatches(selectedCompany.id);
+            if (response.success) {
+                setCalculations(response.data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch batches", err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
-    const filteredCalculations = calculations.filter(c => {
+    React.useEffect(() => {
+        fetchBatches();
+    }, [selectedCompany.id]);
+
+    const filteredCalculations = calculations.filter((c, index) => {
         const matchesSearch = c.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
             c.period.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'All Status' || c.status === statusFilter;
-        const matchesPeriod = periodFilter === 'ALL' || c.isCurrent;
+
+        // 'Current Period' acts as a toggle to show ONLY the latest batch entry
+        const matchesPeriod = periodFilter === 'ALL' || index === 0;
+
         return matchesSearch && matchesStatus && matchesPeriod;
     });
 
     const handlePrintLog = () => {
-        alert("PREPARING PRINT: Generating historical calculation log for the selected period...");
         window.print();
     };
 
-    const handleRePrint = (id) => {
-        alert(`RE-PRINTING: Fetching detailed payroll register for transaction ${id}...`);
-        navigate('/payroll/register/print');
+    const handleRePrint = (id, period) => {
+        // Redirect back to calculation page with the specific period
+        navigate(`/processing/payroll-calculation?period=${period}`);
     };
 
     return (
@@ -111,15 +130,19 @@ const CalculationRegister = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {filteredCalculations.map((c, i) => (
+                                {loading ? (
+                                    <tr><td colSpan={6} className="p-10 text-center"><Loader2 className="animate-spin inline mr-2" /> Loading Historical Data...</td></tr>
+                                ) : filteredCalculations.length === 0 ? (
+                                    <tr><td colSpan={6} className="p-10 text-center text-gray-400 font-bold italic">No Historical Calculations Found</td></tr>
+                                ) : filteredCalculations.map((c, i) => (
                                     <tr key={i} className="border-b border-gray-100 hover:bg-blue-50 transition-colors">
                                         <td className="p-3 sm:p-4 font-black hidden md:table-cell">#{c.id}</td>
                                         <td className="p-3 sm:p-4 font-bold">
                                             <div className="md:hidden text-[8px] opacity-40 font-mono">#{c.id}</div>
                                             {c.period}
                                         </td>
-                                        <td className="p-3 sm:p-4 font-black italic text-blue-900">${c.totalGross}</td>
-                                        <td className="p-3 sm:p-4 font-black italic text-red-600 hidden sm:table-cell">${c.totalTax}</td>
+                                        <td className="p-3 sm:p-4 font-black italic text-blue-900">${c.totalGross.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                        <td className="p-3 sm:p-4 font-black italic text-red-600 hidden sm:table-cell">${c.totalTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                                         <td className="p-3 sm:p-4 hidden xs:table-cell">
                                             <span className={`px-3 py-1 rounded-sm font-black italic text-[8px] uppercase ${c.status === 'Verified' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
                                                 }`}>
@@ -128,7 +151,7 @@ const CalculationRegister = () => {
                                         </td>
                                         <td className="p-3 sm:p-4 text-right">
                                             <button
-                                                onClick={() => handleRePrint(c.id)}
+                                                onClick={() => handleRePrint(c.id, c.period)}
                                                 className="text-blue-600 font-black italic uppercase text-[9px] hover:underline"
                                             >
                                                 {/* On small mobile, shorten the text */}
