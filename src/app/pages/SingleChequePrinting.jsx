@@ -67,7 +67,7 @@ const SingleChequePrinting = () => {
                 date: chequeData.date,
                 memo: chequeData.memo,
                 bankAccount: chequeData.bank,
-                status: print ? 'Printed' : 'Draft',
+                status: print ? 'PRINTED' : 'PENDING',
                 createdBy: activeUser.email
             };
 

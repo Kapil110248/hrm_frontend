@@ -65,7 +65,7 @@ const ChequePrintHistory = () => {
             setLoading(true);
             const response = await api.fetchChequeHistory({ companyId: selectedCompany.id });
             if (response.success) {
-                const mapped = (response.data || []).map(h => ({
+                const mapped = (response.data.cheques || []).map(h => ({
                     id: h.id,
                     chequeNum: h.chequeNumber,
                     date: new Date(h.printDate || h.date).toLocaleDateString(),
@@ -287,8 +287,13 @@ const ChequePrintHistory = () => {
                                         </span>
                                     </td>
                                     <td className="p-3 border-r border-gray-50 text-center">
-                                        <div className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-sm border-2 font-black italic text-[9px] uppercase shadow-inner ${item.status === 'Printed' ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-600 animate-pulse'}`}>
-                                            {item.status === 'Printed' ? <CheckCircle2 size={12} /> : <RotateCcw size={12} />}
+                                        <div className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 rounded-sm border-2 font-black italic text-[9px] uppercase shadow-inner ${
+                                            item.status === 'PRINTED' ? 'bg-green-50 border-green-200 text-green-700' : 
+                                            item.status === 'PENDING' ? 'bg-yellow-50 border-yellow-200 text-yellow-700' : 
+                                            item.status === 'VOID' ? 'bg-red-50 border-red-200 text-red-600 line-through' :
+                                            'bg-gray-50 border-gray-200 text-gray-600'
+                                        }`}>
+                                            {item.status === 'PRINTED' ? <CheckCircle2 size={12} /> : item.status === 'PENDING' ? <Loader2 size={12} /> : <RotateCcw size={12} />}
                                             {item.status}
                                         </div>
                                     </td>
