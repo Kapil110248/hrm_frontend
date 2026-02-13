@@ -36,16 +36,54 @@ const CrystalReporting = () => {
     const handleGenerate = () => {
         if (!selectedReport) return;
         setIsGenerating(true);
-        // Simulate engine processing
-        setTimeout(() => {
+
+        // Map Crystal Reports to actual Application Routes
+        const reportRoutes = {
+            'CR001': '/reports/payroll-summary',
+            'CR002': '/reports/employee',
+            'CR003': '/statutory/s01',
+            'CR004': '/reports/bank-transfer-advice',
+            'CR005': '/reports/p24',
+            'CR006': '/reports/p45',
+            'CR007': '/reports/nht',
+            'CR008': '/reports/nis',
+            'CR009': '/reports/salary' // Mapping Dept Analysis to Salary Report as closest match
+        };
+
+        const targetPath = reportRoutes[selectedReport.id];
+
+        if (targetPath) {
+            // Simulate "Engine Processing" for effect, then navigate
+            setTimeout(() => {
+                setIsGenerating(false);
+                
+                // Extract Year and Period from dates if available, or use defaults
+                let year = '2026';
+                let period = '3';
+
+                if (params.dateFrom) {
+                    const d = new Date(params.dateFrom);
+                    year = d.getFullYear().toString();
+                    period = (d.getMonth() + 1).toString();
+                }
+
+                navigate(targetPath, { 
+                    state: { 
+                        filterOptions: {
+                            ofYear: year,
+                            payPeriod: period,
+                            department: params.department === 'All Departments' ? '' : params.department
+                        },
+                        // Some reports might look for 'selectedYear' or 'payPeriod' directly
+                        selectedYear: year,
+                        payPeriod: period
+                    } 
+                });
+            }, 1000);
+        } else {
             setIsGenerating(false);
-            setLastGenerated({
-                name: selectedReport.name,
-                timestamp: new Date().toLocaleString(),
-                params: { ...params }
-            });
-            alert(`SUCCESS: ${selectedReport.name} generated successfully in ${params.format} format.`);
-        }, 1500);
+            alert("SYSTEM ERROR: Report Definition not found in route registry.");
+        }
     };
 
     const handleExport = () => {

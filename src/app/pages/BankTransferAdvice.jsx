@@ -1,41 +1,84 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Printer, LogOut, FileText, Download, Send } from 'lucide-react';
+import { api } from '../../services/api';
 
 const BankTransferAdvice = () => {
     const navigate = useNavigate();
+    const location = useLocation();
+
     const [filters, setFilters] = useState({
         bank: '',
-        payPeriod: '3',
-        ofYear: '2026',
+        payPeriod: location.state?.filterOptions?.payPeriod || location.state?.payPeriod || '3',
+        ofYear: location.state?.filterOptions?.ofYear || location.state?.selectedYear || '2026',
         batchRef: ''
     });
 
-    const transferData = [
-        { employeeId: 'EMP001', name: 'John Doe', accountNo: '003495831', amount: 45000.00, bank: 'BNS', status: 'Pending' },
-        { employeeId: 'EMP002', name: 'Jane Smith', accountNo: '003495832', amount: 52500.00, bank: 'NCB', status: 'Processed' },
-        { employeeId: 'EMP003', name: 'Mike Ross', accountNo: '003495833', amount: 38000.00, bank: 'JN Bank', status: 'Pending' },
-        { employeeId: 'EMP004', name: 'Sarah Johnson', accountNo: '003495834', amount: 48750.00, bank: 'JMMB', status: 'Processed' },
-        { employeeId: 'EMP005', name: 'Robert Brown', accountNo: '003495835', amount: 41200.00, bank: 'Sagicor', status: 'Pending' },
-        { employeeId: 'EMP006', name: 'Emily Davis', accountNo: '003495836', amount: 49800.00, bank: 'NCB', status: 'Processed' }
-    ];
+    const [transferData, setTransferData] = useState([]);
+    const [isLoading, setIsLoading] = useState(false);
+    
+    // Fetch data when filters change
+    React.useEffect(() => {
+        const fetchData = async () => {
+            setIsLoading(true);
+            try {
+                const companyStr = localStorage.getItem('selectedCompany');
+                const company = companyStr ? JSON.parse(companyStr) : null;
+                
+                if (company) {
+                    const res = await api.fetchPayrolls({
+                        companyId: company.id,
+                        period: getPeriodString(filters.payPeriod, filters.ofYear)
+                    });
+
+                    if (res.success) {
+                        const mapped = res.data
+                            .filter(p => p.employee && (p.netSalary > 0)) // Only users with net pay
+                            .map(p => ({
+                                employeeId: p.employee.employeeId,
+                                name: `${p.employee.firstName} ${p.employee.lastName}`,
+                                accountNo: p.employee.bankAccount || 'MISSING',
+                                amount: parseFloat(p.netSalary),
+                                bank: p.employee.bankName || 'NOT SPECIFIED',
+                                status: p.status === 'Finalized' || p.status === 'Sent' ? 'Processed' : 'Pending',
+                                paymentMethod: p.employee.paymentMethod
+                            }));
+                        
+                        setTransferData(mapped);
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to load bank transfer data", err);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchData();
+    }, [filters.payPeriod, filters.ofYear]);
+
+    const getPeriodString = (period, year) => {
+        const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+        const monthIdx = parseInt(period) - 1;
+        const monthName = months[monthIdx] || 'Jan';
+        return `${monthName}-${year}`;
+    };
 
     const filteredData = transferData.filter(item => {
         if (filters.bank && item.bank !== filters.bank) return false;
+        // Optional: Filter by payment method if needed (e.g. only 'Bank Transfer')
+        if (item.paymentMethod && item.paymentMethod !== 'Bank Transfer') return false; 
         return true;
     });
 
     const totalAmount = filteredData.reduce((sum, item) => sum + item.amount, 0);
 
     const handleSendToBank = () => {
-        if (filteredData.length === 0) {
+         if (filteredData.length === 0) {
             alert("ACTION REQUIRED: No data available to transmit.");
             return;
         }
+        // In a real app, this would call api.createBatchTransfer or similar
         alert(`INFO: Securely transmitting advice for ${filteredData.length} records to ${filters.bank || 'All Banks'}...`);
-        setTimeout(() => {
-            alert("SUCCESS: Transmission confirmed. Batch Reference: " + (Math.random() * 100000).toFixed(0));
-        }, 1500);
     };
 
     const handleExport = () => {
@@ -49,9 +92,9 @@ const BankTransferAdvice = () => {
             ...filteredData.map(item => [
                 item.employeeId,
                 item.name,
-                item.accountNo,
+                `"${item.accountNo}"`, // Force string for account numbers
                 item.bank,
-                item.amount,
+                item.amount.toFixed(2),
                 item.status
             ].join(","))
         ].join("\n");
@@ -60,7 +103,7 @@ const BankTransferAdvice = () => {
         const link = document.createElement("a");
         const url = URL.createObjectURL(blob);
         link.setAttribute("href", url);
-        link.setAttribute("download", `bank_transfer_${filters.bank || 'all'}_${Date.now()}.csv`);
+        link.setAttribute("download", `bank_transfer_${filters.bank || 'all'}_${filters.payPeriod}_${filters.ofYear}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

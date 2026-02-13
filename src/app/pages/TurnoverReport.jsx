@@ -1,21 +1,93 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Printer, LogOut, FileText, Download } from 'lucide-react';
+import { Printer, LogOut, FileText, Download, Loader2 } from 'lucide-react';
+import { api } from '../../services/api';
 
 const TurnoverReport = () => {
     const navigate = useNavigate();
     const [filters, setFilters] = useState({
-        dateFrom: '2026-01-01',
-        dateTo: '2026-03-31',
+        dateFrom: new Date(new Date().getFullYear(), 0, 1).toISOString().split('T')[0],
+        dateTo: new Date().toISOString().split('T')[0],
         department: '',
         reason: ''
     });
+    
+    const [loading, setLoading] = useState(false);
+    const [turnoverData, setTurnoverData] = useState([]);
+    const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
+    const [departments, setDepartments] = useState([]);
 
-    const turnoverData = [
-        { employeeId: 'EMP045', name: 'John Smith', department: 'Sales', joinDate: '2024-03-15', exitDate: '2026-02-28', reason: 'Resignation', tenure: '1.9 years' },
-        { employeeId: 'EMP089', name: 'Mary Johnson', department: 'IT', joinDate: '2023-06-10', exitDate: '2026-01-15', reason: 'Termination', tenure: '2.6 years' },
-        { employeeId: 'EMP112', name: 'Robert Brown', department: 'HR', joinDate: '2025-01-20', exitDate: '2026-03-10', reason: 'Resignation', tenure: '1.1 years' }
-    ];
+    useEffect(() => {
+        const fetchMetadata = async () => {
+            if (selectedCompany.id) {
+                const res = await api.fetchDepartments(selectedCompany.id);
+                if (res.success) setDepartments(res.data);
+            }
+        };
+        fetchMetadata();
+    }, [selectedCompany.id]);
+
+    useEffect(() => {
+        const fetchTurnoverData = async () => {
+            if (!selectedCompany.id) return;
+            
+            setLoading(true);
+            try {
+                // Fetch all redundancies (exits)
+                const res = await api.fetchRedundancies({ 
+                    companyId: selectedCompany.id,
+                    status: 'COMPLETED' // Only completed exits
+                });
+
+                if (res.success) {
+                    // Client-side filtering and mapping
+                    const mapped = res.data.map(r => {
+                        const exitDate = new Date(r.effectiveDate);
+                        const joinDate = r.employee?.joinDate ? new Date(r.employee.joinDate) : null;
+                        
+                        let tenure = 'N/A';
+                        if (joinDate && exitDate) {
+                            const diffTime = Math.abs(exitDate - joinDate);
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                            const years = (diffDays / 365.25).toFixed(1);
+                            tenure = `${years} years`;
+                        }
+
+                        return {
+                            id: r.id,
+                            employeeId: r.employee?.employeeId,
+                            name: `${r.employee?.firstName} ${r.employee?.lastName}`,
+                            department: r.employee?.department?.name || 'Unassigned',
+                            joinDate: joinDate ? joinDate.toLocaleDateString('en-CA') : '-',
+                            exitDate: exitDate.toLocaleDateString('en-CA'),
+                            reason: r.terminationType,
+                            tenure: tenure,
+                            rawExitDate: exitDate
+                        };
+                    });
+                    
+                    setTurnoverData(mapped);
+                }
+            } catch (err) {
+                console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        fetchTurnoverData();
+    }, [selectedCompany.id, filters.dateFrom, filters.dateTo]); 
+
+    const filteredData = turnoverData.filter(item => {
+        const matchesDept = !filters.department || item.department === filters.department;
+        const matchesReason = !filters.reason || item.reason === filters.reason;
+        
+        const itemDate = new Date(item.exitDate); 
+        const fromDate = new Date(filters.dateFrom);
+        const toDate = new Date(filters.dateTo);
+        
+        return matchesDept && matchesReason && item.rawExitDate >= fromDate && item.rawExitDate <= toDate;
+    });
 
     const handleExport = () => {
         const headers = ["Employee ID", "Name", "Department", "Join Date", "Exit Date", "Tenure", "Reason"];
@@ -46,19 +118,13 @@ const TurnoverReport = () => {
         window.print();
     };
 
-    const filteredData = turnoverData.filter(item => {
-        const matchesDept = !filters.department || item.department === filters.department;
-        const matchesReason = !filters.reason || item.reason === filters.reason;
-        const itemDate = new Date(item.exitDate);
-        const fromDate = new Date(filters.dateFrom);
-        const toDate = new Date(filters.dateTo);
-        const matchesDate = itemDate >= fromDate && itemDate <= toDate;
-
-        return matchesDept && matchesReason && matchesDate;
-    });
-
     return (
-        <div className="flex flex-col h-full w-full bg-[#EBE9D8] font-sans text-xs">
+        <div className="flex flex-col h-full w-full bg-[#EBE9D8] font-sans text-xs relative">
+            {loading && (
+                <div className="absolute inset-0 bg-white/50 z-20 flex items-center justify-center">
+                    <Loader2 className="animate-spin text-blue-600" size={32} />
+                </div>
+            )}
             <div className="bg-[#D4D0C8] border-b border-gray-400 px-2 py-1 flex items-center justify-between no-print">
                 <div className="flex items-center gap-2">
                     <FileText className="text-blue-900" size={16} />
@@ -83,7 +149,6 @@ const TurnoverReport = () => {
             </div>
 
             <div className="flex-1 p-4 overflow-auto">
-                {/* Filters */}
                 <div className="bg-white border border-gray-400 p-4 mb-6 shadow-inner no-print">
                     <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4 border-b pb-1">Report Parameters</h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -113,9 +178,9 @@ const TurnoverReport = () => {
                                 className="w-full p-2 border border-gray-300 bg-gray-50 text-blue-900 font-bold outline-none focus:border-blue-500 transition-colors cursor-pointer appearance-none"
                             >
                                 <option value="">ALL DEPARTMENTS</option>
-                                <option value="IT">INFORMATION TECHNOLOGY</option>
-                                <option value="HR">HUMAN RESOURCES</option>
-                                <option value="Sales">SALES & MARKETING</option>
+                                {departments.map(d => (
+                                    <option key={d.id} value={d.name}>{d.name.toUpperCase()}</option>
+                                ))}
                             </select>
                         </div>
                         <div className="flex flex-col gap-1">
@@ -126,15 +191,15 @@ const TurnoverReport = () => {
                                 className="w-full p-2 border border-gray-300 bg-gray-50 text-blue-900 font-bold outline-none focus:border-blue-500 transition-colors cursor-pointer appearance-none"
                             >
                                 <option value="">ALL REASONS</option>
-                                <option value="Resignation">RESIGNATION</option>
-                                <option value="Termination">TERMINATION</option>
-                                <option value="Retirement">RETIREMENT</option>
+                                <option value="Voluntary Resignation">RESIGNATION</option>
+                                <option value="Termination for Cause">TERMINATION</option>
+                                <option value="Standard Redundancy (Legal)">REDUNDANCY</option>
+                                <option value="Retirement Settlement">RETIREMENT</option>
                             </select>
                         </div>
                     </div>
                 </div>
 
-                {/* Report Content */}
                 <div className="bg-white border border-gray-400 shadow-xl p-8 max-w-5xl mx-auto print:shadow-none print:border-none">
                     <div className="mb-8 text-center border-b-2 border-blue-900 pb-4">
                         <h2 className="text-2xl font-black text-blue-900 uppercase tracking-tighter italic">Employee Turnover Performance Report</h2>
@@ -167,12 +232,12 @@ const TurnoverReport = () => {
                                         <td className="p-3 border-r border-gray-100 text-center font-mono text-red-600 uppercase">{row.exitDate}</td>
                                         <td className="p-3 border-r border-gray-100 text-center">{row.tenure}</td>
                                         <td className="p-3 uppercase">
-                                            <span className={`px-2 py-0.5 rounded-full text-[9px] border ${row.reason === 'Termination' ? 'bg-red-50 text-red-700 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
+                                            <span className={`px-2 py-0.5 rounded-full text-[9px] border ${row.reason?.includes('Termination') ? 'bg-red-50 text-red-700 border-red-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                                                 {row.reason}
                                             </span>
                                         </td>
                                     </tr>
-                                )) : (
+                                )) : !loading && (
                                     <tr>
                                         <td colSpan="7" className="p-20 text-center text-gray-400 font-black uppercase tracking-[0.5em] italic">No turnover records found for selected period</td>
                                     </tr>
@@ -203,4 +268,3 @@ const TurnoverReport = () => {
 };
 
 export default TurnoverReport;
-
