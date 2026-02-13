@@ -45,17 +45,17 @@ const PayrollRegisterPrint = () => {
                 const company = companyStr ? JSON.parse(companyStr) : null;
 
                 if (company) {
-
+                    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
                     let periodParam = filterOptions.payPeriod;
-                    if ((periodParam.length <= 2) && !isNaN(periodParam)) {
-                        const date = new Date();
-                        date.setMonth(parseInt(periodParam) - 1);
-                        periodParam = `${date.toLocaleString('default', { month: 'short' })}-${filterOptions.ofYear}`;
+
+                    if (!isNaN(periodParam) && parseInt(periodParam) >= 1 && parseInt(periodParam) <= 12) {
+                        const monthIdx = parseInt(periodParam) - 1;
+                        periodParam = `${months[monthIdx]}-${filterOptions.ofYear}`;
                     } else if (!periodParam.includes('-')) {
-                        // Fallback if just a string like 'Feb', assume current year or default
-                        // This is less likely if coming from PayrollRegister, but safe to handle
                         periodParam = `${periodParam}-${filterOptions.ofYear}`;
                     }
+
+                    console.log('[PRINT_DEBUG] Fetching payload:', { companyId: company.id, period: periodParam });
 
                     const res = await api.fetchPayrolls({
                         companyId: company.id,
@@ -65,32 +65,66 @@ const PayrollRegisterPrint = () => {
                     if (res.success) {
                         let processedData = res.data;
 
-                        // Client-side filtering to match Register selection
-                        if (filterOptions.department && !filterOptions.department.includes('ALL')) {
-                            processedData = processedData.filter(p =>
-                                (p.employee?.department?.name === filterOptions.department) ||
-                                (p.employee?.department === filterOptions.department)
-                            );
-                        }
+                        // Advanced Client-side filtering
+                        processedData = processedData.filter(p => {
+                            const emp = p.employee || {};
 
-                        if (filterOptions.branch && !filterOptions.branch.includes('ALL')) {
-                            processedData = processedData.filter(p => p.employee?.branch === filterOptions.branch);
-                        }
+                            // 1. Department Filter
+                            if (filterOptions.department && !filterOptions.department.includes('ALL')) {
+                                const dMatch = (emp.department?.name === filterOptions.department) ||
+                                    (emp.department === filterOptions.department);
+                                if (!dMatch) return false;
+                            }
 
-                        if (filterOptions.employee && !filterOptions.employee.includes('ALL')) {
-                            const searchName = filterOptions.employee.split('[')[0].trim().toLowerCase();
-                            const searchId = filterOptions.employee.match(/\[(.*?)\]/)?.[1]?.toLowerCase();
+                            // 2. Branch/Location Filter (Partial Match)
+                            if (filterOptions.branch && !filterOptions.branch.includes('ALL')) {
+                                const filterVal = filterOptions.branch.toLowerCase();
+                                const city = (emp.city || '').toLowerCase();
+                                const parish = (emp.parish || '').toLowerCase();
+                                const branch = (emp.branch || '').toLowerCase();
 
-                            processedData = processedData.filter(p => {
-                                const fName = p.employee?.firstName?.toLowerCase() || '';
-                                const lName = p.employee?.lastName?.toLowerCase() || '';
-                                const empId = p.employee?.employeeId?.toLowerCase() || '';
+                                const bMatch = city.includes(filterVal) || parish.includes(filterVal) || branch.includes(filterVal) || filterVal.includes(city);
+                                if (!bMatch) return false;
+                            }
+
+                            // 3. Pay Series (Frequency) Filter (Partial Match)
+                            if (filterOptions.paySeries && !filterOptions.paySeries.includes('ALL')) {
+                                const filterVal = filterOptions.paySeries.toLowerCase(); // e.g. "monthly (m01)"
+                                const empFreq = (emp.payFrequency || '').toLowerCase(); // e.g. "monthly"
+
+                                // Check if either string contains the other
+                                const sMatch = empFreq.includes(filterVal) || filterVal.includes(empFreq);
+                                if (!sMatch) return false;
+                            }
+
+                            // 4. Pay Grade (Hierarchy) Filter (Partial Match)
+                            if (filterOptions.payGrade && !filterOptions.payGrade.includes('ALL')) {
+                                const filterVal = filterOptions.payGrade.toLowerCase();
+                                const empGrade = (emp.designation || '').toLowerCase();
+
+                                const gMatch = empGrade === filterVal || empGrade.includes(filterVal) || filterVal.includes(empGrade);
+                                if (!gMatch) return false;
+                            }
+
+                            // 5. Personnel Filter
+                            if (filterOptions.employee && !filterOptions.employee.includes('ALL')) {
+                                const searchName = filterOptions.employee.split('[')[0].trim().toLowerCase();
+                                const searchId = filterOptions.employee.match(/\[(.*?)\]/)?.[1]?.toLowerCase();
+
+                                const fName = emp.firstName?.toLowerCase() || '';
+                                const lName = emp.lastName?.toLowerCase() || '';
+                                const empId = emp.employeeId?.toLowerCase() || '';
                                 const fullName = `${fName} ${lName}`;
 
-                                if (searchId) return empId.includes(searchId);
-                                return fullName.includes(searchName);
-                            });
-                        }
+                                if (searchId) {
+                                    if (empId !== searchId) return false;
+                                } else {
+                                    if (!fullName.includes(searchName)) return false;
+                                }
+                            }
+
+                            return true;
+                        });
 
                         setPayrollData(processedData);
 
@@ -116,7 +150,7 @@ const PayrollRegisterPrint = () => {
         };
 
         fetchPayrollData();
-    }, [filterOptions.payPeriod, filterOptions.ofYear, filterOptions.department, filterOptions.branch, filterOptions.employee]);
+    }, [filterOptions.payPeriod, filterOptions.ofYear, filterOptions.department, filterOptions.branch, filterOptions.employee, filterOptions.paySeries, filterOptions.payGrade]);
 
     const handleZoomIn = () => setZoom(prev => Math.min(prev + 10, 200));
     const handleZoomOut = () => setZoom(prev => Math.max(prev - 10, 50));
@@ -251,120 +285,92 @@ const PayrollRegisterPrint = () => {
                             <div className="text-[10px] text-gray-400 mt-2">Try adjusting your filter criteria</div>
                         </div>
                     ) : (
-                        payrollData.map((record, idx) => (
-                            <div key={record.id || idx} className="mb-6 border-b border-gray-200 pb-4">
-                                <div className="flex gap-4 text-[10px] border-b border-gray-600 pb-1 mb-2">
-                                    <div>
-                                        <span className="font-bold">Employee ID:</span> <span>{record.employee?.employeeId || 'N/A'}</span>
-                                    </div>
-                                    <div>
-                                        <span className="font-bold">Name:</span> <span>{record.employee?.firstName} {record.employee?.lastName}</span>
-                                    </div>
-                                </div>
-
-                                {/* Main Data Table */}
-                                <div className="overflow-x-auto">
-                                    <table className="w-full text-[9px] border-collapse min-w-[600px]">
-                                        <thead>
-                                            <tr className="border-b border-gray-400">
-                                                <th className="text-left p-1 font-bold">PERIOD</th>
-                                                <th className="text-left p-1 font-bold">EMPLOYEE</th>
-                                                <th className="text-right p-1 font-bold">GROSS SALARY</th>
-                                                <th className="text-right p-1 font-bold">DEDUCTIONS</th>
-                                                <th className="text-right p-1 font-bold">TAX</th>
-                                                <th className="text-right p-1 font-bold">NET PAY</th>
-                                                <th className="text-left p-1 font-bold">STATUS</th>
+                        <>
+                            {/* Main Data Table */}
+                            <div className="mb-6 overflow-x-auto">
+                                <table className="w-full text-[9px] border-collapse min-w-[600px]">
+                                    <thead>
+                                        <tr className="border-b-2 border-black">
+                                            <th className="text-left font-black uppercase py-2 w-[8%]">Emp ID</th>
+                                            <th className="text-left font-black uppercase py-2 w-[22%]">Employee Name</th>
+                                            <th className="text-left font-black uppercase py-2 w-[18%]">Department</th>
+                                            <th className="text-left font-black uppercase py-2 w-[12%]">Job Title</th>
+                                            <th className="text-left font-black uppercase py-2 w-[10%]">Location</th>
+                                            <th className="text-right font-black uppercase py-2 w-[10%]">Gross Salary</th>
+                                            <th className="text-right font-black uppercase py-2 w-[8%] text-red-600">Deductions</th>
+                                            <th className="text-right font-black uppercase py-2 w-[8%] text-red-600">Tax</th>
+                                            <th className="text-right font-black uppercase py-2 w-[10%] bg-gray-50">Net Pay</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {payrollData.map((p, idx) => (
+                                            <tr key={idx} className="border-b border-gray-100 hover:bg-yellow-50">
+                                                <td className="py-1.5 text-gray-700 font-bold align-top">{p.employee?.employeeId}</td>
+                                                <td className="py-1.5 text-blue-900 font-bold uppercase align-top">{p.employee?.firstName} {p.employee?.lastName}</td>
+                                                <td className="py-1.5 text-gray-600 uppercase align-top">{p.employee?.department?.name || p.employee?.department || '-'}</td>
+                                                <td className="py-1.5 text-gray-500 uppercase italic text-[8px] align-top">{p.employee?.designation || '-'}</td>
+                                                <td className="py-1.5 text-gray-500 uppercase italic text-[8px] align-top">{p.employee?.city || p.employee?.branch || '-'}</td>
+                                                <td className="py-1.5 text-right text-gray-800 font-mono align-top">{formatCurrency(p.grossSalary)}</td>
+                                                <td className="py-1.5 text-right text-red-500 font-mono align-top">{formatCurrency(p.deductions)}</td>
+                                                <td className="py-1.5 text-right text-red-500 font-mono align-top">{formatCurrency(p.tax)}</td>
+                                                <td className="py-1.5 text-right text-green-700 font-black font-mono bg-gray-50 align-top">{formatCurrency(p.netSalary)}</td>
                                             </tr>
-                                        </thead>
-                                        <tbody>
-                                            <tr>
-                                                <td className="p-1">{record.period}</td>
-                                                <td className="p-1">{record.employee?.firstName} {record.employee?.lastName}</td>
-                                                <td className="p-1 text-right">${parseFloat(record.grossSalary || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                <td className="p-1 text-right">${parseFloat(record.deductions || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                <td className="p-1 text-right">${parseFloat(record.tax || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                <td className="p-1 text-right font-bold">${parseFloat(record.netSalary || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
-                                                <td className="p-1">
-                                                    <span className={`px-2 py-0.5 rounded text-[8px] font-bold ${record.status === 'Paid' ? 'bg-green-100 text-green-800' :
-                                                        record.status === 'Pending' ? 'bg-yellow-100 text-yellow-800' :
-                                                            'bg-gray-100 text-gray-800'
-                                                        }`}>
-                                                        {record.status}
-                                                    </span>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
 
-                                {/* Summary for this employee */}
-                                <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-[9px]">
-                                    <div className="border border-gray-300 p-2">
-                                        <div className="font-bold text-gray-500">Gross Salary</div>
-                                        <div className="text-right font-bold">${parseFloat(record.grossSalary || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                            {/* Report Summary Section */}
+                            <div className="mt-8 border-t-2 border-gray-800 pt-4">
+                                <div className="mb-3 text-[10px] font-black uppercase text-gray-700 tracking-wider">Report Grand Totals</div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-[9px]">
+
+                                    {/* Earnings Summary */}
+                                    <div className="border border-gray-400 p-2 shadow-sm">
+                                        <div className="font-bold mb-2 border-b border-gray-200 pb-1 text-gray-600">TOTAL EARNINGS</div>
+                                        <div className="grid grid-cols-[1fr_auto] gap-y-1">
+                                            <span>Total Gross:</span>
+                                            <span className="font-bold font-mono">{formatCurrency(totals.gross)}</span>
+                                            <span className="text-gray-500">Non-Taxable:</span>
+                                            <span className="text-gray-500 font-mono">0.00</span>
+                                        </div>
                                     </div>
-                                    <div className="border border-gray-300 p-2">
-                                        <div className="font-bold text-gray-500">Deductions</div>
-                                        <div className="text-right font-bold text-red-600">${parseFloat(record.deductions || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+
+                                    {/* Deductions Summary */}
+                                    <div className="border border-gray-400 p-2 shadow-sm">
+                                        <div className="font-bold mb-2 border-b border-gray-200 pb-1 text-gray-600">TOTAL DEDUCTIONS</div>
+                                        <div className="grid grid-cols-[1fr_auto] gap-y-1">
+                                            <span>Total Ded:</span>
+                                            <span className="font-bold text-red-600 font-mono">{formatCurrency(totals.deductions)}</span>
+                                            <span>Total Tax:</span>
+                                            <span className="font-bold text-red-600 font-mono">{formatCurrency(totals.tax)}</span>
+                                        </div>
                                     </div>
-                                    <div className="border border-gray-300 p-2">
-                                        <div className="font-bold text-gray-500">Tax</div>
-                                        <div className="text-right font-bold text-red-600">${parseFloat(record.tax || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+
+                                    {/* Statutory Breakdown */}
+                                    <div className="border border-gray-400 p-2 shadow-sm bg-gray-50">
+                                        <div className="font-bold mb-2 border-b border-gray-200 pb-1 text-blue-600">STATUTORY BREAKDOWN (EST)</div>
+                                        <div className="grid grid-cols-[1fr_auto] gap-y-1 text-gray-500">
+                                            <span>NHT:</span>
+                                            <span className="font-mono">{formatCurrency(totals.nht)}</span>
+                                            <span>NIS:</span>
+                                            <span className="font-mono">{formatCurrency(totals.nis)}</span>
+                                            <span>EdTax:</span>
+                                            <span className="font-mono">{formatCurrency(totals.edTax)}</span>
+                                        </div>
                                     </div>
-                                    <div className="border border-gray-300 p-2 bg-green-50">
-                                        <div className="font-bold text-gray-500">Net Pay</div>
-                                        <div className="text-right font-bold text-green-700">${parseFloat(record.netSalary || 0).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+
+                                    {/* Net Disbursement */}
+                                    <div className="border-2 border-green-600 p-2 shadow-md bg-green-50 flex flex-col justify-center">
+                                        <div className="font-black text-[10px] uppercase text-green-800 mb-1">NET DISBURSEMENT</div>
+                                        <div className="text-left text-xs text-gray-600">TOTAL NET:</div>
+                                        <div className="text-right text-xl font-black text-green-700 mt-auto font-mono">{formatCurrency(totals.net)}</div>
                                     </div>
+
                                 </div>
                             </div>
-                        ))
+                        </>
                     )}
-
-                    {/* Report Summary Section */}
-                    <div className="mt-6 border-t-2 border-gray-400 pt-4">
-                        <div className="mb-2 text-xs font-black uppercase text-gray-600">Report Grand Totals</div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8 text-[9px]">
-                            <div className="border border-gray-400 p-2 shadow-sm">
-                                <div className="font-bold mb-1 border-b border-gray-200">TOTAL EARNINGS</div>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                    <span>Gross:</span>
-                                    <span className="text-right font-bold">${totals.gross.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                    <span>Non-Taxable:</span>
-                                    <span className="text-right">0.00</span>
-                                </div>
-                            </div>
-
-                            <div className="border border-gray-400 p-2 shadow-sm">
-                                <div className="font-bold mb-1 border-b border-gray-200">TOTAL DEDUCTIONS</div>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                    <span>Total Ded:</span>
-                                    <span className="text-right font-bold text-red-600">${totals.deductions.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                    <span>Total Tax:</span>
-                                    <span className="text-right font-bold text-red-600">${totals.tax.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                </div>
-                            </div>
-
-                            <div className="border border-gray-400 p-2 shadow-sm bg-gray-50">
-                                <div className="font-bold mb-1 border-b border-gray-200 text-blue-900">STATUTORY BREAKDOWN (EST)</div>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                    <span>NHT:</span>
-                                    <span className="text-right">{totals.nht > 0 ? totals.nht.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</span>
-                                    <span>NIS:</span>
-                                    <span className="text-right">{totals.nis > 0 ? totals.nis.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</span>
-                                    <span>EdTax:</span>
-                                    <span className="text-right">{totals.edTax > 0 ? totals.edTax.toLocaleString('en-US', { minimumFractionDigits: 2 }) : '-'}</span>
-                                </div>
-                            </div>
-
-                            <div className="border border-gray-400 p-2 shadow-sm bg-yellow-50">
-                                <div className="font-bold mb-1 border-b border-gray-200">NET DISBURSEMENT</div>
-                                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                    <span className="font-black text-gray-700">TOTAL NET:</span>
-                                    <span className="text-right font-black text-green-700 text-lg">${totals.net.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </div>
 
@@ -379,15 +385,19 @@ const PayrollRegisterPrint = () => {
                 </button>
                 <div className="flex-1"></div>
                 <button
-                    onClick={() => navigate(-1)}
-                    className="flex items-center gap-1 px-3 py-1 border border-gray-400 bg-white hover:bg-gray-100"
+                    onClick={() => navigate('/payroll/register')}
+                    className="px-3 py-1 border border-gray-400 bg-white hover:bg-gray-100"
                 >
-                    <LogOut size={16} />
-                    <span className="font-bold">Close</span>
+                    Close
                 </button>
             </div>
         </div>
     );
+};
+
+// Helper for currency formatting
+const formatCurrency = (amount) => {
+    return parseFloat(amount || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
 export default PayrollRegisterPrint;
