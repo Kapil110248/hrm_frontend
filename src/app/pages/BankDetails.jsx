@@ -69,83 +69,98 @@ const BankDetails = () => {
     };
 
     const handleEnter = async () => {
-        if (formData.bankBranch && formData.companyACNo) {
-            try {
-                setLoading(true);
-                const payload = {
-                    companyId: selectedCompany.id,
-                    bankName: formData.bank,
-                    bankBranch: formData.bankBranch,
-                    accountNumber: formData.companyACNo,
-                    identificationNo: formData.identificationNo,
-                    glAccount: formData.glAccount,
-                    exportPath: formData.exportPath
-                };
-                const response = await api.createBankAccount(payload);
-                if (response.success) {
-                    fetchBankAccounts();
-                    handleNew();
-                    setIsEditing(false);
-                }
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
+        if (!formData.bankBranch || !formData.companyACNo) {
+            alert("STATION ALERT: Bank Branch and Account Number are required.");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const payload = {
+                companyId: selectedCompany.id,
+                bankName: formData.bank,
+                bankBranch: formData.bankBranch,
+                accountNumber: formData.companyACNo,
+                identificationNo: formData.identificationNo,
+                glAccount: formData.glAccount,
+                exportPath: formData.exportPath
+            };
+            const response = await api.createBankAccount(payload);
+            if (response.success) {
+                alert("✓ BANK ACCOUNT CREATED SUCCESSFULLY");
+                fetchBankAccounts();
+                handleNew();
+                setIsEditing(false);
             }
+        } catch (err) {
+            console.error(err);
+            alert("ERROR: Failed to create bank account record.");
+        } finally {
+            setLoading(false);
         }
     };
 
     const handleEdit = () => {
-        if (selectedRow) {
-            const account = bankAccounts.find(a => a.id === selectedRow);
-            if (account) {
-                // We need to fetch the full details for GL Account and Export Path if they are in the table item, 
-                // but since they are not in the mapped table item, we should find in the original API response or let it be.
-                // For now, we'll just use what we have in the item.
-                setFormData({
-                    bank: account.bank,
-                    bankBranch: account.branch,
-                    companyACNo: account.accountNo,
-                    identificationNo: account.identificationNo,
-                    glAccount: account.glAccount || '',
-                    exportPath: account.exportPath || ''
-                });
-                setIsEditing(true);
-            }
+        if (!selectedRow) {
+            alert("STATION ALERT: Please select a record from the list to edit.");
+            return;
         }
+        setIsEditing(true);
     };
 
     const handleUpdate = async () => {
-        if (selectedRow) {
-            try {
-                setLoading(true);
-                const payload = {
-                    bankName: formData.bank,
-                    bankBranch: formData.bankBranch,
-                    accountNumber: formData.companyACNo,
-                    identificationNo: formData.identificationNo,
-                    glAccount: formData.glAccount,
-                    exportPath: formData.exportPath
-                };
-                const response = await api.updateBankAccount(selectedRow, payload);
-                if (response.success) {
-                    fetchBankAccounts();
-                    setIsEditing(false);
-                }
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
+        if (!selectedRow) {
+            alert("STATION ALERT: Please select a record to update.");
+            return;
+        }
+        if (!formData.bankBranch || !formData.companyACNo) {
+            alert("STATION ALERT: Bank Branch and Account Number are required.");
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const payload = {
+                bankName: formData.bank,
+                bankBranch: formData.bankBranch,
+                accountNumber: formData.companyACNo,
+                identificationNo: formData.identificationNo,
+                glAccount: formData.glAccount,
+                exportPath: formData.exportPath
+            };
+            const response = await api.updateBankAccount(selectedRow, payload);
+            if (response.success) {
+                alert("✓ BANK ACCOUNT UPDATED SUCCESSFULLY");
+                fetchBankAccounts();
+                setIsEditing(false);
             }
+        } catch (err) {
+            console.error(err);
+            alert("ERROR: Failed to update bank account record.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleSave = () => {
+        if (selectedRow) {
+            handleUpdate();
+        } else {
+            handleEnter();
         }
     };
 
     const handleDelete = async () => {
-        if (selectedRow && window.confirm("DELETE BANK ACCOUNT: Are you sure?")) {
+        if (!selectedRow) {
+            alert("STATION ALERT: Please select a record to delete.");
+            return;
+        }
+        if (window.confirm("CRITICAL WARNING: This will permanently DELETE this bank account master record. Continue?")) {
             try {
                 setLoading(true);
                 const response = await api.deleteBankAccount(selectedRow);
                 if (response.success) {
+                    alert("✓ BANK ACCOUNT DELETED SUCCESSFULLY");
                     fetchBankAccounts();
                     setSelectedRow(null);
                     handleNew();
@@ -153,6 +168,7 @@ const BankDetails = () => {
                 }
             } catch (err) {
                 console.error(err);
+                alert("ERROR: Failed to delete bank account record.");
             } finally {
                 setLoading(false);
             }
@@ -258,7 +274,7 @@ const BankDetails = () => {
                         {/* Separator for desktop */}
                         <div className="hidden lg:block h-px bg-gray-400 my-1 mx-2"></div>
 
-                        <button onClick={handleUpdate} className={btnClass}>
+                        <button onClick={handleSave} className={btnClass}>
                             <Save className="text-emerald-700 mb-1" size={20} />
                             <span className="font-bold text-[10px]">SAVE</span>
                         </button>

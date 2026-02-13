@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Hammer, Calculator, ShieldAlert, Cpu, HardDrive, Settings, LogOut, ChevronRight } from 'lucide-react';
+import { Hammer, Calculator, ShieldAlert, Cpu, HardDrive, Settings, LogOut, ChevronRight, Activity } from 'lucide-react';
 
 const SystemTools = () => {
     const navigate = useNavigate();

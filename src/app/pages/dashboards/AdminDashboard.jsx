@@ -23,7 +23,7 @@ const AdminDashboard = () => {
 
     useEffect(() => {
         console.log("AdminDashboard: Component Mounted. API:", api);
-        
+
         let companyId = undefined;
         try {
             const companyStr = localStorage.getItem('selectedCompany');
@@ -89,7 +89,7 @@ const AdminDashboard = () => {
         try {
             const date = new Date(dateStr);
             if (isNaN(date.getTime())) return 'INVALID DATE';
-            
+
             const now = new Date();
             const diffInMs = now - date;
             const diffInMins = Math.floor(diffInMs / (1000 * 60));
@@ -110,7 +110,7 @@ const AdminDashboard = () => {
         { label: 'Company Setup', icon: <Settings size={18} />, path: '/company/setup', desc: 'Master Organization Details' },
         { label: 'User Provisioning', icon: <Users size={18} />, path: '/tools', desc: 'Create/Edit System Users' },
         { label: 'Backup & Restore', icon: <Database size={18} />, path: '/files', desc: 'Data Management' },
-        { label: 'System Logs', icon: <FileText size={18} />, path: '/tools', desc: 'View Audit Trails' },
+        { label: 'System Logs', icon: <FileText size={18} />, path: '/tools/audit', desc: 'View Audit Trails' },
         { label: 'System Configuration', icon: <Globe size={18} />, path: '/company/system-settings', desc: 'Regional & Security Prefs' },
         { label: 'Preference Config', icon: <Lock size={18} />, path: '/company/settings', desc: 'Payroll & UI Preferences' },
     ];
@@ -213,7 +213,7 @@ const AdminDashboard = () => {
                             )}
                         </div>
                         <button
-                            onClick={() => navigate('/tools')}
+                            onClick={() => navigate('/tools/audit')}
                             className="w-full mt-6 py-2 border border-gray-200 text-gray-400 text-[9px] font-bold uppercase hover:bg-gray-50 transition-all"
                         >
                             Full Audit Trail
