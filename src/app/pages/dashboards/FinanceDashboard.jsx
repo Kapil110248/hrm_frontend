@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../../../services/api';
 import { useNavigate } from 'react-router-dom';
 import {
     DollarSign, TrendingUp, CreditCard, Landmark,
-    FileText, ArrowRight, PieChart, Download, Wallet
+    FileText, ArrowRight, PieChart, Download, Wallet, Activity
 } from 'lucide-react';
 
 const FinanceDashboard = () => {
