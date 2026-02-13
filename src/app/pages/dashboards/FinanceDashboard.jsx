@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
+<<<<<<< HEAD
 import { api } from '../../../services/api';
+=======
+>>>>>>> a78a9cc6c43e3383b4abd3b8acdb441fb0ebf681
 import { useNavigate } from 'react-router-dom';
+import { api } from '../../../services/api';
 import {
     DollarSign, TrendingUp, CreditCard, Landmark,
     FileText, ArrowRight, PieChart, Download, Wallet, Activity
