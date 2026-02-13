@@ -111,11 +111,17 @@ export const api = {
     deletePayroll: async (id) => {
         return apiClient.delete(`/payrolls/${id}`);
     },
+    fetchPayrollBatches: async (companyId) => {
+        return apiClient.get(`/payrolls/batches?companyId=${companyId}`);
+    },
     generatePayrolls: async (data) => {
         return apiClient.post('/payrolls/generate', data);
     },
     finalizeBatch: async (data) => {
         return apiClient.post('/payrolls/finalize', data);
+    },
+    syncPayrolls: async (data) => {
+        return apiClient.post('/payrolls/sync', data);
     },
     sendPayslipEmail: async (payrollId) => {
         return apiClient.post(`/payrolls/${payrollId}/email`);

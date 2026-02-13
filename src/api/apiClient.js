@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// const BASE_URL = 'http://localhost:5000/api';
-const BASE_URL = 'https://hrm-backend-production-7006.up.railway.app/api';
+const BASE_URL = 'http://localhost:5000/api';
+//const BASE_URL = 'https://hrm-backend-production-7006.up.railway.app/api';
 
 const apiClient = axios.create({
     baseURL: BASE_URL,
