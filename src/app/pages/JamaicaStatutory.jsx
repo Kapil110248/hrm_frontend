@@ -49,8 +49,9 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
             title: 'P45 - Employee Termination Certificate',
             formCode: 'F-P45-TAJ',
             fields: [
-                { label: 'Cumulative Gross Pay', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.grossSalary), 0).toFixed(2) },
-                { label: 'Cumulative Income Tax', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.tax), 0).toFixed(2) },
+                { label: 'Cumulative Gross Pay', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.grossSalary || 0), 0).toFixed(2) },
+                { label: 'Cumulative Income Tax', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.tax || 0), 0).toFixed(2) }, // Total tax (PAYE + EdTax + NIS + NHT) or just PAYE? P45 usually implies PAYE. But p.tax in backend is totalTax. Let's use p.paye if available, else p.tax. Backend has nht, nis, edTax, paye.
+                { label: 'Total PAYE', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.paye || 0), 0).toFixed(2) },
                 { label: 'Employer TRN', category: 'Entity', value: () => company?.trn || 'NOT_FOUND' }
             ]
         },
@@ -58,31 +59,59 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
             title: 'NIS / NHT Statutory Contributions',
             formCode: 'F-NIS/NHT-ANNUAL',
             fields: [
-                { label: 'Gross Pay for Period', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.grossSalary), 0).toFixed(2) },
-                { label: 'NIS Employer (3%)', category: 'Financials', value: (data) => (data.reduce((sum, p) => sum + parseFloat(p.grossSalary), 0) * 0.03).toFixed(2) },
-                { label: 'NIS Employee (3%)', category: 'Financials', value: (data) => (data.reduce((sum, p) => sum + parseFloat(p.grossSalary), 0) * 0.03).toFixed(2) },
-                { label: 'NHT Employer (3%)', category: 'Financials', value: (data) => (data.reduce((sum, p) => sum + parseFloat(p.grossSalary), 0) * 0.03).toFixed(2) },
-                { label: 'NHT Employee (2%)', category: 'Financials', value: (data) => (data.reduce((sum, p) => sum + parseFloat(p.grossSalary), 0) * 0.02).toFixed(2) }
+                { label: 'Gross Pay for Period', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.grossSalary || 0), 0).toFixed(2) },
+                // Use stored NIS/NHT for Employee
+                { label: 'NIS Employee (3%)', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.nis || 0), 0).toFixed(2) },
+                // Calculate Employer NIS (3% of Gross)
+                { label: 'NIS Employer (3%)', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + (parseFloat(p.grossSalary || 0) * 0.03), 0).toFixed(2) },
+                 // Use stored NHT for Employee
+                { label: 'NHT Employee (2%)', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.nht || 0), 0).toFixed(2) },
+                // Calculate Employer NHT (3% of Gross)
+                { label: 'NHT Employer (3%)', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + (parseFloat(p.grossSalary || 0) * 0.03), 0).toFixed(2) }
             ]
         },
         'S01': {
             title: 'S01 - Monthly Statutory Remittance',
             formCode: 'F-S01-MONTHLY',
             fields: [
-                { label: 'PAYE Liability', category: 'Taxation', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.tax), 0).toFixed(2) },
-                { label: 'Education Tax (ER 3.5%)', category: 'Taxation', value: (data) => (data.reduce((sum, p) => sum + parseFloat(p.grossSalary), 0) * 0.035).toFixed(2) },
-                { label: 'Education Tax (EE 2.25%)', category: 'Taxation', value: (data) => (data.reduce((sum, p) => sum + parseFloat(p.grossSalary), 0) * 0.0225).toFixed(2) },
-                { label: 'NIS Total (6%)', category: 'Social Security', value: (data) => (data.reduce((sum, p) => sum + parseFloat(p.grossSalary), 0) * 0.06).toFixed(2) },
-                { label: 'NHT Total (5%)', category: 'Housing', value: (data) => (data.reduce((sum, p) => sum + parseFloat(p.grossSalary), 0) * 0.05).toFixed(2) },
-                { label: 'HEART Trust (3%)', category: 'Social Security', value: (data) => (data.reduce((sum, p) => sum + parseFloat(p.grossSalary), 0) * 0.03).toFixed(2) }
+                // PAYE (Income Tax) - Use stored value
+                { label: 'PAYE Liability', category: 'Taxation', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.paye || 0), 0).toFixed(2) },
+                // Ed Tax Employee (2.25%) - Use stored value
+                { label: 'Education Tax (EE 2.25%)', category: 'Taxation', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.edTax || 0), 0).toFixed(2) },
+                // Ed Tax Employer (3.5%) - Calculated on (Gross - NIS) to match backend logic for Ed Tax Base
+                { label: 'Education Tax (ER 3.5%)', category: 'Taxation', value: (data) => data.reduce((sum, p) => {
+                    const gross = parseFloat(p.grossSalary || 0);
+                    const nis = parseFloat(p.nis || 0);
+                    const statIncome = gross - nis; 
+                    return sum + (statIncome > 0 ? statIncome * 0.035 : 0);
+                }, 0).toFixed(2) },
+                // NIS Total (EE stored + ER calculated)
+                { label: 'NIS Total (6%)', category: 'Social Security', value: (data) => data.reduce((sum, p) => {
+                    const gross = parseFloat(p.grossSalary || 0);
+                    const ee = parseFloat(p.nis || 0);
+                    const er = gross * 0.03;
+                    return sum + ee + er;
+                }, 0).toFixed(2) },
+                // NHT Total (EE stored + ER calculated)
+                { label: 'NHT Total (5%)', category: 'Housing', value: (data) => data.reduce((sum, p) => {
+                    const gross = parseFloat(p.grossSalary || 0);
+                    const ee = parseFloat(p.nht || 0);
+                    const er = gross * 0.03;
+                    return sum + ee + er;
+                }, 0).toFixed(2) },
+                // HEART (3% of Gross) - Employer only
+                { label: 'HEART Trust (3%)', category: 'Social Security', value: (data) => data.reduce((sum, p) => sum + (parseFloat(p.grossSalary || 0) * 0.03), 0).toFixed(2) }
             ]
         },
         'S02': {
             title: 'S02 - Annual Statutory Declaration',
             formCode: 'F-S02-YEARLY',
             fields: [
-                { label: 'Total Annual Gross', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.grossSalary), 0).toFixed(2) },
-                { label: 'Total PAYE Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.tax), 0).toFixed(2) }
+                { label: 'Total Annual Gross', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.grossSalary || 0), 0).toFixed(2) },
+                { label: 'Total PAYE Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.paye || 0), 0).toFixed(2) },
+                { label: 'Total Ed Tax Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.edTax || 0), 0).toFixed(2) },
+                { label: 'Total NIS Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.nis || 0), 0).toFixed(2) },
+                { label: 'Total NHT Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.nht || 0), 0).toFixed(2) }
             ]
         }
     };

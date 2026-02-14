@@ -49,12 +49,12 @@ const ReportsHub = () => {
     };
 
     const reports = [
-        { id: 'P24', title: 'P24 - Year End Certificates (Tax Administration Jamaica)', type: 'Annual', code: 'GOJ-P24-V2', icon: ShieldCheck },
-        { id: 'P45', title: 'P45 - Employee Termination (Tax Administration Jamaica)', type: 'Ad-hoc', code: 'GOJ-P45-X1', icon: FileText },
-        { id: 'S01', title: 'S01 - Monthly Statutory Remittance', type: 'Monthly', code: 'GOJ-S01-M', icon: Calendar },
-        { id: 'NIS', title: 'NIS Annual Contribution Report', type: 'Annual', code: 'GOJ-NIS-04', icon: Building, path: '/statutory/nis' },
+        { id: 'P24', title: 'P24 - Year End Certificates (Tax Administration Jamaica)', type: 'Annual', code: 'GOJ-P24-V2', icon: ShieldCheck, path: '/statutory/p24' },
+        { id: 'P45', title: 'P45 - Employee Termination (Tax Administration Jamaica)', type: 'Ad-hoc', code: 'GOJ-P45-X1', icon: FileText, path: '/statutory/p45' },
+        { id: 'S01', title: 'S01 - Monthly Statutory Remittance', type: 'Monthly', code: 'GOJ-S01-M', icon: Calendar, path: '/statutory/s01' },
+        { id: 'NIS', title: 'NIS / NHT Annual Contribution Report', type: 'Annual', code: 'GOJ-NIS-04', icon: Building, path: '/statutory/nis-nht' },
         { id: 'NHT', title: 'NHT Contribution by Employee/Year', type: 'Annual', code: 'GOJ-NHT-02', icon: User, path: '/statutory/nht' },
-        { id: 'PAY', title: 'Master Payroll Summary', type: 'Internal', code: 'INT-PAY-SUM', icon: Printer },
+        { id: 'PAY', title: 'Master Payroll Summary', type: 'Internal', code: 'INT-PAY-SUM', icon: Printer, path: '/reports/payroll-summary' },
     ];
 
     const handleReportSelect = (report) => {
