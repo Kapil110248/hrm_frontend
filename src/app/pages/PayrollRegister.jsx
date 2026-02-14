@@ -7,6 +7,7 @@ const PayrollRegister = () => {
     const navigate = useNavigate();
 
     // Order Options state
+    const [activeUser] = useState(JSON.parse(localStorage.getItem('currentUser') || '{}'));
     const [orderOptions, setOrderOptions] = useState({
         primaryOrder: 'None',
         primarySort: 'Ascending',
@@ -32,8 +33,8 @@ const PayrollRegister = () => {
 
     // Filter Options state
     const [filterOptions, setFilterOptions] = useState({
-        payPeriod: '2',
-        ofYear: '2026',
+        payPeriod: String(new Date().getMonth() + 1),
+        ofYear: String(new Date().getFullYear()),
         paySeries: '-- ALL ACTIVE SERIES --',
         payGrade: '-- ALL SERVICE GRADES --',
         employee: '-- ALL STAFF MEMBERS --',
@@ -469,7 +470,7 @@ const PayrollRegister = () => {
                     <span className="border-l border-gray-400 pl-4 uppercase">PERIOD: {filterOptions.payPeriod}-{filterOptions.ofYear}</span>
                 </div>
                 <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-center sm:justify-end border-t sm:border-t-0 border-gray-300 pt-2 sm:pt-0">
-                    <span className="uppercase tracking-widest hidden xs:inline">Operator: ADMIN-01</span>
+                    <span className="uppercase tracking-widest hidden xs:inline">Operator: {activeUser.firstName ? `${activeUser.firstName} ${activeUser.lastName}` : 'ADMIN-01'}</span>
                     <span className="text-blue-800 font-black tracking-tighter italic">SMARTHRM ENGINE v5.1.0-A</span>
                 </div>
             </div>

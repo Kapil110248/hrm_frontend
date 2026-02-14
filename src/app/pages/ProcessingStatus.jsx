@@ -167,7 +167,7 @@ const ProcessingStatus = () => {
                                 <p className="font-black text-blue-900 uppercase italic text-[10px] sm:text-[11px] tracking-widest">Admin Directive</p>
                             </div>
                             <p className="text-[10px] sm:text-[11px] text-gray-400 font-bold leading-relaxed uppercase tracking-tighter italic">
-                                SYSTEM_READY: All core redundancy protocols verified for Feb-2026 calc session. Please monitor bank handshake latency.
+                                SYSTEM_READY: All core redundancy protocols verified for {new Date().toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-')} calc session. Please monitor bank handshake latency.
                             </p>
                         </div>
                     </div>

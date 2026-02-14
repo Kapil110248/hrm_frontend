@@ -1,13 +1,9 @@
 import React, { useState, useEffect } from 'react';
-<<<<<<< HEAD
 import { api } from '../../../services/api';
-=======
->>>>>>> a78a9cc6c43e3383b4abd3b8acdb441fb0ebf681
 import { useNavigate } from 'react-router-dom';
-import { api } from '../../../services/api';
 import {
     DollarSign, TrendingUp, CreditCard, Landmark,
-    FileText, ArrowRight, PieChart, Download, Wallet, Activity
+    FileText, ArrowRight, PieChart, Download, Wallet, Activity, CheckSquare
 } from 'lucide-react';
 
 const FinanceDashboard = () => {
@@ -61,6 +57,7 @@ const FinanceDashboard = () => {
         { label: 'S01 Return', icon: <FileText size={18} />, path: '/statutory/s01', desc: 'Tax Compliance' },
         { label: 'GL Interface', icon: <PieChart size={18} />, path: '/reports/ledger', desc: 'General Ledger Export' },
         { label: 'Payroll Register', icon: <FileText size={18} />, path: '/payroll/register', desc: 'Detailed Breakdown' },
+        { label: 'Post Transactions', icon: <CheckSquare size={18} />, path: '/processing/post-transactions', desc: 'Commit Entries' },
         { label: 'Disbursement', icon: <DollarSign size={18} />, path: '/processing/disbursement', desc: 'Confirm Payments' },
     ];
 
@@ -78,8 +75,45 @@ const FinanceDashboard = () => {
         document.body.removeChild(link);
     };
 
-    const handleDownloadBankFiles = () => {
-        alert("Downloading bank transfer files...");
+    const handleDownloadBankFiles = async () => {
+        try {
+            const companyStr = localStorage.getItem('selectedCompany');
+            if (!companyStr) {
+                alert("Please select a company first.");
+                return;
+            }
+            const company = JSON.parse(companyStr);
+
+            const response = await api.exportBankFile({ companyId: company.id });
+            if (response.success && response.data) {
+                const { transfers, summary } = response.data;
+
+                if (transfers.length === 0) {
+                    alert("No pending bank transfers found for export.");
+                    return;
+                }
+
+                // Generate CSV
+                const header = "AccountNumber,AccountName,Amount,Reference,EmployeeID,TRN\n";
+                const rows = transfers.map(t =>
+                    `${t.accountNumber},"${t.accountName}",${t.amount},${t.reference},${t.employeeId},${t.trn}`
+                ).join("\n");
+
+                const csvContent = "data:text/csv;charset=utf-8," + header + rows;
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `BANK_EXPORT_${company.code}_${new Date().toISOString().slice(0, 10)}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                alert("Failed to generate bank file.");
+            }
+        } catch (error) {
+            console.error("Export error:", error);
+            alert("An error occurred while exporting bank files.");
+        }
     };
 
     return (

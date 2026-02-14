@@ -10,7 +10,8 @@ const PayrollWizard = () => {
 
     // Wizard State
     const [selection, setSelection] = useState('full');
-    const [period, setPeriod] = useState('Feb-2026'); // Default, should be dynamic
+    const [period, setPeriod] = useState(new Date().toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-'));
+    const [periods, setPeriods] = useState([]);
     const [selectedDepts, setSelectedDepts] = useState([]);
     const [departments, setDepartments] = useState([]);
 
@@ -24,6 +25,18 @@ const PayrollWizard = () => {
         if (storedCompany) {
             setSelectedCompany(JSON.parse(storedCompany));
         }
+    }, []);
+
+    useEffect(() => {
+        const months = [];
+        const today = new Date();
+        for (let i = 0; i < 12; i++) {
+            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const label = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+            const value = d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-');
+            months.push({ label, value });
+        }
+        setPeriods(months);
     }, []);
 
     useEffect(() => {
@@ -182,9 +195,9 @@ const PayrollWizard = () => {
                                         onChange={(e) => setPeriod(e.target.value)}
                                         className="w-full p-2 border border-blue-500 font-bold text-blue-900 bg-blue-50"
                                     >
-                                        <option value="Feb-2026">Feb-2026 (Monthly)</option>
-                                        <option value="Jan-2026">Jan-2026 (Monthly)</option>
-                                        <option value="2026 - Weekly - 06">2026 - Weekly - 06</option>
+                                        {periods.map(p => (
+                                            <option key={p.value} value={p.value}>{p.label}</option>
+                                        ))}
                                     </select>
                                 </div>
 

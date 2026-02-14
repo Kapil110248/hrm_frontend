@@ -50,12 +50,14 @@ const PostedTransactionRegister = () => {
 
     // Filters
     const [filters, setFilters] = useState({
-        period: 'Feb-2026',
+        period: new Date().toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-'),
         department: '',
         search: ''
     });
 
     const [transactions, setTransactions] = useState([]);
+    const [departments, setDepartments] = useState([]);
+    const [periods, setPeriods] = useState([]);
 
     // UI States
     const [toast, setToast] = useState(null);
@@ -77,7 +79,7 @@ const PostedTransactionRegister = () => {
                 status: 'POSTED'
             };
             if (filters.period) params.period = filters.period;
-            
+
             const response = await api.fetchTransactionRegister(params);
             if (response.success) {
                 const mapped = (response.data.transactions || []).map(t => ({
@@ -102,8 +104,36 @@ const PostedTransactionRegister = () => {
         }
     };
 
+    const fetchDepartments = async () => {
+        if (!selectedCompany.id) return;
+        try {
+            const response = await api.fetchDepartments(selectedCompany.id);
+            if (response.success) {
+                setDepartments(response.data);
+            }
+        } catch (err) {
+            console.error("Failed to fetch departments", err);
+        }
+    };
+
+    const generatePeriods = () => {
+        const months = [];
+        const today = new Date();
+        for (let i = 0; i < 12; i++) {
+            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const label = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+            const value = d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-');
+            months.push({ label, value });
+        }
+        setPeriods(months);
+    };
+
     useEffect(() => {
-        fetchPosted();
+        if (selectedCompany.id) {
+            fetchPosted();
+            fetchDepartments();
+            generatePeriods();
+        }
     }, [selectedCompany.id, filters.period]);
 
     const formatCurrency = (val) => {
@@ -125,9 +155,9 @@ const PostedTransactionRegister = () => {
 
         try {
             setIsVoiding(true);
-            const response = await api.voidTransaction(selectedTrx.id, { 
+            const response = await api.voidTransaction(selectedTrx.id, {
                 reason: voidReason,
-                voidedBy: activeUser.email 
+                voidedBy: activeUser.email
             });
 
             if (response.success) {
@@ -186,13 +216,13 @@ const PostedTransactionRegister = () => {
                     <div className="bg-red-50 border border-red-200 p-3 rounded text-red-800 text-xs flex items-start gap-2">
                         <AlertTriangle size={16} className="shrink-0 mt-0.5" />
                         <div>
-                             Most transactions cannot be un-posted. This action will <strong>VOID</strong> the transaction and set the amount to $0.00.
+                            Most transactions cannot be un-posted. This action will <strong>VOID</strong> the transaction and set the amount to $0.00.
                         </div>
                     </div>
-                    
+
                     <div className="text-xs">
                         <label className="block font-bold text-gray-700 mb-1 uppercase">Reason for Reversal</label>
-                        <textarea 
+                        <textarea
                             value={voidReason}
                             onChange={(e) => setVoidReason(e.target.value)}
                             className="w-full border border-gray-400 p-2 text-xs font-medium outline-none focus:border-blue-500 h-20 resize-none rounded-sm"
@@ -201,13 +231,13 @@ const PostedTransactionRegister = () => {
                     </div>
 
                     <div className="flex justify-end gap-2 mt-2">
-                        <button 
+                        <button
                             onClick={() => setShowVoidModal(false)}
                             className="px-4 py-2 bg-gray-200 text-gray-700 font-bold uppercase text-[10px] rounded-sm hover:bg-gray-300 transition-colors"
                         >
                             Cancel
                         </button>
-                        <button 
+                        <button
                             onClick={confirmReverse}
                             disabled={isVoiding}
                             className="px-4 py-2 bg-red-600 text-white font-bold uppercase text-[10px] rounded-sm hover:bg-red-700 transition-colors shadow-sm flex items-center gap-2"
@@ -241,9 +271,9 @@ const PostedTransactionRegister = () => {
                             onChange={(e) => setFilters({ ...filters, period: e.target.value })}
                             className="border-2 border-white border-r-gray-400 border-b-gray-400 h-9 px-2 bg-white shadow-inner font-black text-blue-900 outline-none focus:border-blue-500"
                         >
-                            <option value="Feb-2026">February 2026</option>
-                            <option value="Jan-2026">January 2026</option>
-                            <option value="Dec-2025">December 2025</option>
+                            {periods.map(p => (
+                                <option key={p.value} value={p.value}>{p.label}</option>
+                            ))}
                         </select>
                     </div>
                     <div className="flex flex-col gap-1">
@@ -254,10 +284,9 @@ const PostedTransactionRegister = () => {
                             className="border-2 border-white border-r-gray-400 border-b-gray-400 h-9 px-2 bg-white shadow-inner font-black text-blue-900 outline-none focus:border-blue-500"
                         >
                             <option value="">-- All Departments --</option>
-                            <option value="Accounting">Accounting</option>
-                            <option value="Operations">Operations</option>
-                            <option value="Sales">Sales</option>
-                            <option value="IT">IT</option>
+                            {departments.map(dept => (
+                                <option key={dept.id} value={dept.name}>{dept.name}</option>
+                            ))}
                         </select>
                     </div>
                     <div className="flex flex-col gap-1">

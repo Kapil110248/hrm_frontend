@@ -13,13 +13,18 @@ const TransactionRegister = () => {
     const [activeUser] = useState(JSON.parse(localStorage.getItem('currentUser') || '{}'));
     const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
 
+    const getCurrentPeriod = () => {
+        const d = new Date();
+        return d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-');
+    };
+
     const fetchRecords = async () => {
         if (!selectedCompany.id) return;
         try {
             setLoading(true);
             const params = { companyId: selectedCompany.id };
             if (period === 'CURRENT') {
-                params.period = 'Feb-2026'; // Mocking current period
+                params.period = getCurrentPeriod();
             }
             const response = await api.fetchTransactionRegister(params);
             if (response.success) {
@@ -31,7 +36,7 @@ const TransactionRegister = () => {
                     type: t.type,
                     amount: parseFloat(t.amount),
                     status: t.status,
-                    period: t.period === 'Feb-2026' ? 'CURRENT' : 'PREVIOUS'
+                    period: t.period === getCurrentPeriod() ? 'CURRENT' : 'PREVIOUS'
                 }));
                 setRecords(mapped);
             }
