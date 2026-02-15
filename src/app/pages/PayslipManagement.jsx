@@ -89,23 +89,66 @@ const PayslipManagement = () => {
         }
     };
 
+    const normalizePeriodUI = (p) => {
+        if (!p) return p;
+        let clean = p.trim().toUpperCase().replace(' ', '-');
+
+        // Fix common abbreviations
+        clean = clean.replace('SEPT-', 'SEP-');
+
+        // Handle YYYY-MM format
+        const yyyymmMatch = clean.match(/^(\d{4})-(\d{2})$/);
+        if (yyyymmMatch) {
+            const year = yyyymmMatch[1];
+            const monthIdx = parseInt(yyyymmMatch[2]) - 1;
+            const d = new Date(year, monthIdx, 1);
+            return d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase().replace('SEPT-', 'SEP-');
+        }
+        return clean;
+    };
+
     const fetchPeriods = async () => {
         if (!selectedCompany.id) return;
         try {
             const response = await api.fetchPayrollBatches(selectedCompany.id);
+
+            // Standard expected periods (Current + 1 Future + 5 Past)
+            const standardPeriods = [];
+            const today = new Date();
+            // Start from 1 month in the future
+            for (let i = -1; i < 6; i++) {
+                const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+                standardPeriods.push(d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase());
+            }
+
+            let finalPeriods = [];
             if (response.success && response.data.length > 0) {
-                // Ensure all periods are uppercase for consistency in the UI
-                const normalizedBatches = response.data.map(b => ({ ...b, period: b.period.toUpperCase() }));
-                setPeriods(normalizedBatches);
-                setSelectedPeriod(normalizedBatches[0].period);
+                // Normalize and Merge existing batch periods with standard ones
+                const batchPeriods = response.data.map(b => normalizePeriodUI(b.period));
+                const merged = Array.from(new Set([...standardPeriods, ...batchPeriods]));
+                finalPeriods = merged.map(p => ({ period: p }));
             } else {
-                // Fallback periods if no batches exist
-                const months = [];
-                const today = new Date();
-                for (let i = 0; i < 6; i++) {
-                    months.push({ period: new Date(today.getFullYear(), today.getMonth() - i, 1).toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase() });
+                finalPeriods = standardPeriods.map(p => ({ period: p }));
+            }
+
+            // Deduplicate again and set
+            const uniquePeriods = [];
+            const seen = new Set();
+            for (const p of finalPeriods) {
+                if (!seen.has(p.period)) {
+                    uniquePeriods.push(p);
+                    seen.add(p.period);
                 }
-                setPeriods(months);
+            }
+
+            setPeriods(uniquePeriods);
+
+            // Default to current month if available
+            const currentMonth = today.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
+            if (seen.has(currentMonth)) {
+                setSelectedPeriod(currentMonth);
+            } else if (uniquePeriods.length > 0) {
+                setSelectedPeriod(uniquePeriods[0].period);
             }
         } catch (err) {
             console.error(err);

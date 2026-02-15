@@ -50,9 +50,9 @@ const SalaryReport = () => {
                                 <th className="border p-2 text-left uppercase tracking-tighter">Employee ID</th>
                                 <th className="border p-2 text-left uppercase tracking-tighter">Name</th>
                                 <th className="border p-2 text-left uppercase tracking-tighter">Period</th>
-                                <th className="border p-2 text-left uppercase tracking-tighter">Basic</th>
-                                <th className="border p-2 text-left uppercase tracking-tighter">Allowances</th>
-                                <th className="border p-2 text-left uppercase tracking-tighter">Deductions</th>
+                                <th className="border p-2 text-left uppercase tracking-tighter">Gross Salary</th>
+                                <th className="border p-2 text-left uppercase tracking-tighter">Tax / Stat</th>
+                                <th className="border p-2 text-left uppercase tracking-tighter">Other Deduct</th>
                                 <th className="border p-2 text-left uppercase tracking-tighter font-black">Net Salary</th>
                             </tr>
                         </thead>
@@ -64,7 +64,7 @@ const SalaryReport = () => {
                                         <td className="border p-2">{record.employee?.firstName} {record.employee?.lastName}</td>
                                         <td className="border p-2">{record.period}</td>
                                         <td className="border p-2 text-right">{formatCurrency(record.grossSalary)}</td>
-                                        <td className="border p-2 text-right">{formatCurrency(record.tax)}</td>
+                                        <td className="border p-2 text-right text-red-600">({formatCurrency(record.tax)})</td>
                                         <td className="border p-2 text-right text-red-600">{formatCurrency(record.deductions)}</td>
                                         <td className="border p-2 text-right text-blue-900 font-black">{formatCurrency(record.netSalary)}</td>
                                     </tr>

@@ -9,14 +9,14 @@ const BankTransferAdvice = () => {
 
     const [filters, setFilters] = useState({
         bank: '',
-        payPeriod: location.state?.filterOptions?.payPeriod || location.state?.payPeriod || '3',
-        ofYear: location.state?.filterOptions?.ofYear || location.state?.selectedYear || '2026',
+        payPeriod: location.state?.filterOptions?.payPeriod || location.state?.payPeriod || (new Date().getMonth() + 1).toString(),
+        ofYear: location.state?.filterOptions?.ofYear || location.state?.selectedYear || new Date().getFullYear().toString(),
         batchRef: ''
     });
 
     const [transferData, setTransferData] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
-    
+
     // Fetch data when filters change
     React.useEffect(() => {
         const fetchData = async () => {
@@ -24,7 +24,7 @@ const BankTransferAdvice = () => {
             try {
                 const companyStr = localStorage.getItem('selectedCompany');
                 const company = companyStr ? JSON.parse(companyStr) : null;
-                
+
                 if (company) {
                     const res = await api.fetchPayrolls({
                         companyId: company.id,
@@ -35,15 +35,16 @@ const BankTransferAdvice = () => {
                         const mapped = res.data
                             .filter(p => p.employee && (p.netSalary > 0)) // Only users with net pay
                             .map(p => ({
+                                id: p.id,
                                 employeeId: p.employee.employeeId,
                                 name: `${p.employee.firstName} ${p.employee.lastName}`,
                                 accountNo: p.employee.bankAccount || 'MISSING',
                                 amount: parseFloat(p.netSalary),
                                 bank: p.employee.bankName || 'NOT SPECIFIED',
-                                status: p.status === 'Finalized' || p.status === 'Sent' ? 'Processed' : 'Pending',
+                                status: ['Finalized', 'Sent', 'Paid'].includes(p.status) ? 'Processed' : 'Pending',
                                 paymentMethod: p.employee.paymentMethod
                             }));
-                        
+
                         setTransferData(mapped);
                     }
                 }
@@ -66,19 +67,67 @@ const BankTransferAdvice = () => {
     const filteredData = transferData.filter(item => {
         if (filters.bank && item.bank !== filters.bank) return false;
         // Optional: Filter by payment method if needed (e.g. only 'Bank Transfer')
-        if (item.paymentMethod && item.paymentMethod !== 'Bank Transfer') return false; 
+        if (item.paymentMethod && item.paymentMethod !== 'Bank Transfer') return false;
         return true;
     });
 
     const totalAmount = filteredData.reduce((sum, item) => sum + item.amount, 0);
 
-    const handleSendToBank = () => {
-         if (filteredData.length === 0) {
+    const handleSendToBank = async () => {
+        if (filteredData.length === 0) {
             alert("ACTION REQUIRED: No data available to transmit.");
             return;
         }
-        // In a real app, this would call api.createBatchTransfer or similar
-        alert(`INFO: Securely transmitting advice for ${filteredData.length} records to ${filters.bank || 'All Banks'}...`);
+
+        if (!window.confirm(`CONFIRM TRANSMISSION: You are about to securely transmit advice for ${filteredData.length} records. This will mark them as PAID in the system. Proceed?`)) {
+            return;
+        }
+
+        try {
+            setIsLoading(true);
+            const payrollIds = filteredData.map(item => item.id);
+            const res = await api.transmitBankAdvice({
+                payrollIds,
+                bankName: filters.bank || 'Consolidated'
+            });
+
+            if (res.success) {
+                alert(`SUCCESS: ${res.message || 'Bank advice transmitted successfully.'}`);
+
+                // Refresh data
+                const companyStr = localStorage.getItem('selectedCompany');
+                const company = companyStr ? JSON.parse(companyStr) : null;
+
+                if (company) {
+                    const period = getPeriodString(filters.payPeriod, filters.ofYear);
+                    const refreshRes = await api.fetchPayrolls({
+                        companyId: company.id,
+                        period
+                    });
+
+                    if (refreshRes.success) {
+                        const mapped = refreshRes.data
+                            .filter(p => p.employee && (p.netSalary > 0))
+                            .map(p => ({
+                                id: p.id,
+                                employeeId: p.employee.employeeId,
+                                name: `${p.employee.firstName} ${p.employee.lastName}`,
+                                accountNo: p.employee.bankAccount || 'MISSING',
+                                amount: parseFloat(p.netSalary),
+                                bank: p.employee.bankName || 'NOT SPECIFIED',
+                                status: ['Finalized', 'Sent', 'Paid'].includes(p.status) ? 'Processed' : 'Pending',
+                                paymentMethod: p.employee.paymentMethod
+                            }));
+                        setTransferData(mapped);
+                    }
+                }
+            }
+        } catch (err) {
+            console.error("Transmission failed", err);
+            alert("ERROR: Failed to transmit advice. Please contact IT support.");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleExport = () => {
@@ -86,27 +135,48 @@ const BankTransferAdvice = () => {
             alert("INFO: Buffer empty. Nothing to export.");
             return;
         }
-        const headers = ["Employee ID", "Name", "Account Number", "Bank", "Amount", "Status"];
-        const csvContent = [
-            headers.join(","),
-            ...filteredData.map(item => [
-                item.employeeId,
-                item.name,
-                `"${item.accountNo}"`, // Force string for account numbers
-                item.bank,
-                item.amount.toFixed(2),
-                item.status
-            ].join(","))
-        ].join("\n");
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        // CSV Header
+        const headers = ["Employee ID", "Personnel Name", "Account Number", "Bank Institution", "Net Amount", "Status"];
+
+        // Map data rows
+        const rows = filteredData.map(item => [
+            item.employeeId,
+            `"${item.name.replace(/"/g, '""')}"`, // Escape quotes in names
+            `"${item.accountNo}"`, // Force string for account numbers to preserve leading zeros
+            item.bank,
+            item.amount.toFixed(2),
+            item.status
+        ].join(","));
+
+        // Combine with BOM for Excel UTF-8 compatibility
+        const BOM = "\uFEFF";
+        const csvContent = BOM + [headers.join(","), ...rows].join("\r\n");
+
+        // Create Blob
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
+
+        // Create download link
+        const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
-        const url = URL.createObjectURL(blob);
-        link.setAttribute("href", url);
-        link.setAttribute("download", `bank_transfer_${filters.bank || 'all'}_${filters.payPeriod}_${filters.ofYear}.csv`);
+        link.href = url;
+        link.style.display = 'none';
+
+        // Sanitize filename
+        const safeBank = (filters.bank || 'CONSOLIDATED').replace(/[^a-z0-9]/yi, '_');
+        const filename = `BANK_ADVICE_${safeBank}_${filters.payPeriod}_${filters.ofYear}.csv`;
+        link.setAttribute("download", filename);
+
         document.body.appendChild(link);
+
+        // Trigger download
         link.click();
-        document.body.removeChild(link);
+
+        // Cleanup
+        setTimeout(() => {
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        }, 100);
     };
 
     const handlePrint = () => {
@@ -168,23 +238,27 @@ const BankTransferAdvice = () => {
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className="text-gray-500 font-black text-[9px] uppercase tracking-tighter">Tax Year</label>
-                            <input
-                                type="text"
+                            <select
                                 value={filters.ofYear}
                                 onChange={(e) => setFilters({ ...filters, ofYear: e.target.value })}
-                                className="w-full p-2 border border-gray-300 bg-gray-50 font-bold text-blue-900 outline-none focus:border-blue-500 transition-colors shadow-inner"
-                            />
+                                className="w-full p-2 border border-gray-300 bg-gray-50 font-bold text-blue-900 outline-none focus:border-blue-500 transition-colors shadow-inner cursor-pointer"
+                            >
+                                {[...Array(5)].map((_, i) => {
+                                    const y = new Date().getFullYear() - 2 + i;
+                                    return <option key={y} value={y}>{y}</option>;
+                                })}
+                            </select>
                         </div>
                         <div className="flex flex-col gap-1">
                             <label className="text-gray-500 font-black text-[9px] uppercase tracking-tighter">Pay Cycle</label>
                             <select
                                 value={filters.payPeriod}
                                 onChange={(e) => setFilters({ ...filters, payPeriod: e.target.value })}
-                                className="w-full p-2 border border-gray-300 bg-gray-50 font-bold text-blue-900 outline-none focus:border-blue-500 transition-colors shadow-inner"
+                                className="w-full p-2 border border-gray-300 bg-gray-50 font-bold text-blue-900 outline-none focus:border-blue-500 transition-colors shadow-inner cursor-pointer"
                             >
-                                <option value="1">Period 1</option>
-                                <option value="2">Period 2</option>
-                                <option value="3">Period 3</option>
+                                {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
+                                    <option key={i + 1} value={i + 1}>{m} (Period {i + 1})</option>
+                                ))}
                             </select>
                         </div>
                         <div className="flex flex-col gap-1">

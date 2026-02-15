@@ -55,7 +55,10 @@ const AdvancePayment = () => {
                     employee: a.employee ? `${a.employee.firstName} ${a.employee.lastName}` : 'Unknown',
                     amount: parseFloat(a.amount),
                     status: a.status,
-                    color: a.status === 'PAID' ? 'text-green-600' : a.status === 'APPROVED' ? 'text-blue-600' : 'text-yellow-600'
+                    color: a.status === 'PAID' ? 'text-green-600' :
+                        a.status === 'APPROVED' ? 'text-blue-600' :
+                            a.status === 'REJECTED' ? 'text-red-600' :
+                                'text-yellow-600'
                 })));
             }
         } catch (err) {
@@ -167,7 +170,28 @@ const AdvancePayment = () => {
     };
 
     const handleApprove = async (tx) => {
-        const confirm = window.confirm(`APPROVE DISBURSEMENT for ${tx.employee}?\n\nThis will trigger immediate bank transfer and schedule future deductions.`);
+        const confirm = window.confirm(`APPROVE REQUEST: Are you sure you want to approve this advance for ${tx.employee}?`);
+        if (!confirm) return;
+
+        try {
+            setLoading(true);
+            const response = await api.approveAdvancePayment(tx.id, {
+                approvedBy: activeUser.email
+            });
+            if (response.success) {
+                alert("REQUEST APPROVED: The status is now set to APPROVED. Final disbursement is required to release funds.");
+                fetchInitial();
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error approving request.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleMarkPaid = async (tx) => {
+        const confirm = window.confirm(`EXECUTE DISBURSEMENT: Confirm bank transfer and ledger update for ${tx.employee}?`);
         if (!confirm) return;
 
         try {
@@ -176,12 +200,12 @@ const AdvancePayment = () => {
                 paymentDate: new Date().toISOString()
             });
             if (response.success) {
-                alert("SETTLEMENT FINALIZED: Bank transfer and deductions synchronized.");
+                alert("SETTLEMENT FINALIZED: Bank transfer initiated and payroll deductions scheduled.");
                 fetchInitial();
             }
         } catch (err) {
             console.error(err);
-            alert("Error approving disbursement.");
+            alert("Error processing payment.");
         } finally {
             setLoading(false);
         }
@@ -413,20 +437,39 @@ const AdvancePayment = () => {
                                                 </td>
                                                 <td className="p-4 text-center">
                                                     {tx.status === 'PENDING' ? (
-                                                        <div className="flex gap-2 justify-center">
-                                                            <button
-                                                                onClick={() => handleApprove(tx)}
-                                                                className="px-2 py-1 bg-green-600 text-white rounded text-[8px] font-black uppercase hover:bg-green-700 transition-colors shadow-sm"
-                                                            >
-                                                                Approve
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleReject(tx)}
-                                                                className="px-2 py-1 bg-red-600 text-white rounded text-[8px] font-black uppercase hover:bg-red-700 transition-colors shadow-sm"
-                                                            >
-                                                                Reject
-                                                            </button>
-                                                        </div>
+                                                        (activeUser.role === 'ADMIN' || activeUser.role === 'FINANCE') ? (
+                                                            <div className="flex gap-2 justify-center">
+                                                                <button
+                                                                    onClick={() => handleApprove(tx)}
+                                                                    className="px-2 py-1 bg-blue-600 text-white rounded text-[8px] font-black uppercase hover:bg-blue-700 transition-colors shadow-sm"
+                                                                >
+                                                                    Approve
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleReject(tx)}
+                                                                    className="px-2 py-1 bg-red-600 text-white rounded text-[8px] font-black uppercase hover:bg-red-700 transition-colors shadow-sm"
+                                                                >
+                                                                    Reject
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-[8px] font-black text-orange-500 italic uppercase">Awaiting Approval</span>
+                                                        )
+                                                    ) : tx.status === 'APPROVED' ? (
+                                                        (activeUser.role === 'ADMIN' || activeUser.role === 'FINANCE') ? (
+                                                            <div className="flex justify-center">
+                                                                <button
+                                                                    onClick={() => handleMarkPaid(tx)}
+                                                                    className="px-2 py-1 bg-green-600 text-white rounded text-[8px] font-black uppercase hover:bg-green-700 transition-colors shadow-sm"
+                                                                >
+                                                                    Disburse / Pay
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-[8px] font-black text-blue-500 italic uppercase">Pending Payout</span>
+                                                        )
+                                                    ) : tx.status === 'REJECTED' ? (
+                                                        <span className="text-[8px] font-black text-red-600 italic uppercase">Refused</span>
                                                     ) : (
                                                         <span className="text-[8px] font-black text-gray-300 italic uppercase">Locked</span>
                                                     )}

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
+import { formatPeriod } from '../../../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 import {
     DollarSign, TrendingUp, CreditCard, Landmark,
-    FileText, ArrowRight, PieChart, Download, Wallet, Activity, CheckSquare
+    FileText, ArrowRight, PieChart, Download, Wallet, Activity, CheckSquare, Calendar
 } from 'lucide-react';
 
 const FinanceDashboard = () => {
@@ -124,6 +125,7 @@ const FinanceDashboard = () => {
                 </div>
             )}
             {/* Header */}
+            {/* Header */}
             <div className="border-b border-gray-300 pb-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-lg font-bold text-gray-800 uppercase tracking-tight">
@@ -131,12 +133,18 @@ const FinanceDashboard = () => {
                     </h1>
                     <p className="text-[10px] font-medium text-gray-500 uppercase tracking-widest mt-1">Treasury & Disbursement Operations</p>
                 </div>
-                <button
-                    onClick={handleExportFinancials}
-                    className="bg-gray-700 text-white px-4 py-1.5 rounded shadow-sm flex items-center gap-2 hover:bg-gray-800 transition-colors uppercase text-[10px] font-bold"
-                >
-                    <Download size={14} /> Export Data
-                </button>
+                <div className="flex items-center gap-4">
+                    <div className="bg-white px-3 py-1.5 border border-gray-300 rounded shadow-sm text-[10px] font-bold text-gray-700 uppercase flex items-center gap-2">
+                        <Calendar size={14} className="text-gray-400" />
+                        <span>PERIOD: {formatPeriod()}</span>
+                    </div>
+                    <button
+                        onClick={handleExportFinancials}
+                        className="bg-gray-700 text-white px-4 py-1.5 rounded shadow-sm flex items-center gap-2 hover:bg-gray-800 transition-colors uppercase text-[10px] font-bold"
+                    >
+                        <Download size={14} /> Export Data
+                    </button>
+                </div>
             </div>
 
             {/* Stats Grid */}

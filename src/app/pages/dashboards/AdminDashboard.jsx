@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Shield, Server, Users, Activity, Settings,
-    Database, Lock, AlertTriangle, FileText, Globe, ArrowRight
+    Database, Lock, AlertTriangle, FileText, Globe, ArrowRight, Calendar
 } from 'lucide-react';
 import { api } from '../../../services/api';
+import { formatPeriod } from '../../../utils/formatters';
 
 const AdminDashboard = () => {
     console.log("AdminDashboard: Rendering...");
@@ -123,11 +124,17 @@ const AdminDashboard = () => {
     return (
         <div className="flex flex-col h-full w-full bg-[#F5F5F7] font-sans p-4 md:p-6 overflow-y-auto">
             {/* Header */}
-            <div className="border-b border-gray-300 pb-4 mb-6">
-                <h1 className="text-lg font-bold text-gray-800 uppercase tracking-tight">
-                    System Administration Console
-                </h1>
-                <p className="text-[10px] font-medium text-gray-500 uppercase tracking-widest mt-1">Status: Restricted Administrative Access</p>
+            <div className="border-b border-gray-300 pb-4 mb-6 flex justify-between items-center">
+                <div>
+                    <h1 className="text-lg font-bold text-gray-800 uppercase tracking-tight">
+                        System Administration Console
+                    </h1>
+                    <p className="text-[10px] font-medium text-gray-500 uppercase tracking-widest mt-1">Status: Restricted Administrative Access</p>
+                </div>
+                <div className="bg-white px-3 py-1.5 border border-gray-300 rounded shadow-sm text-[10px] font-bold text-gray-700 uppercase flex items-center gap-2">
+                    <Calendar size={14} className="text-gray-400" />
+                    <span>SYSTEM PERIOD: {formatPeriod()}</span>
+                </div>
             </div>
 
             {/* Stats Grid */}

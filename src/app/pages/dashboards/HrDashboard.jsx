@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../../../services/api';
+import { formatPeriod } from '../../../utils/formatters';
 import { useNavigate } from 'react-router-dom';
 import {
     Users, Calendar, Clock, DollarSign, BarChart3,
@@ -78,7 +79,7 @@ const HrDashboard = () => {
                 </div>
                 <div className="bg-white px-3 py-1.5 border border-gray-300 rounded shadow-sm flex items-center gap-2">
                     <Calendar className="text-gray-400" size={14} />
-                    <span className="text-[10px] font-bold text-gray-700 uppercase">{new Date().toLocaleDateString('en-JM', { dateStyle: 'long' })}</span>
+                    <span className="text-[10px] font-bold text-gray-700 uppercase">PERIOD: {formatPeriod()}</span>
                 </div>
             </div>
 

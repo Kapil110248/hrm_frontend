@@ -45,6 +45,8 @@ import ChequePrinting from './pages/ChequePrinting';
 import EmailPayslips from './pages/EmailPayslips';
 import PayslipManagement from './pages/PayslipManagement';
 import MyPayslips from './pages/MyPayslips';
+import LeaveRequest from './pages/LeaveRequest';
+import EmployeeProfile from './pages/EmployeeProfile';
 import EmployeeDocuments from './pages/EmployeeDocuments';
 import ImportWizard from './pages/ImportWizard';
 import ReportsHub from './pages/ReportsHub';
@@ -173,11 +175,32 @@ const AppRoutes = ({ onLogout, currentUser }) => {
                     <Route path="/reports/ytd-breakdown" element={<YTDBreakdownReport />} />
                     <Route path="/reports/retention" element={<RetentionReport />} />
                     <Route path="/reports/email-p24" element={<EmailPayslips />} />
+                    <Route path="/statutory/p24" element={<P45Report />} />
+                    <Route path="/statutory/p45" element={<JamaicaStatutory type="P45" />} />
+                    <Route path="/statutory/nht" element={<NHTReport />} />
+                    <Route path="/statutory/nis-nht" element={<JamaicaStatutory type="NIS-NHT" />} />
+                    <Route path="/statutory/s01" element={<JamaicaStatutory type="S01" />} />
+                    <Route path="/statutory/s02" element={<JamaicaStatutory type="S02" />} />
+                    <Route path="/statutory/pension" element={<JamaicaStatutory type="Pension" />} />
+                    <Route path="/statutory/tax-upload" element={<JamaicaStatutory type="TaxUpload" />} />
+
+                    <Route path="/banking/bns" element={<BankIntegrations bank="BNS" />} />
+                    <Route path="/banking/ncb" element={<BankIntegrations bank="NCB" />} />
+                    <Route path="/banking/jn" element={<BankIntegrations bank="JN" />} />
+                    <Route path="/banking/jmmb" element={<BankIntegrations bank="JMMB" />} />
+                    <Route path="/banking/sagicor" element={<BankIntegrations bank="SAGICOR" />} />
+                    <Route path="/banking/citibank" element={<BankIntegrations bank="CITIBANK" />} />
+                    <Route path="/banking/payment-advice" element={<ModulePlaceholder title="Electronic Payment Advice Module" />} />
+
+                    <Route path="/processing/disbursement" element={<PayDisbursement />} />
+                    <Route path="/processing/cheque-printing" element={<ChequePrinting />} />
+                    <Route path="/processing/cheque-single" element={<SingleChequePrinting />} />
+                    <Route path="/processing/cheque-history" element={<ChequePrintHistory />} />
                 </Route>
 
-                {/* 3. Finance & Admin Modules */}
+                {/* 3. Finance & Admin Modules (Accounting only) */}
                 <Route element={<ProtectedRoute user={currentUser} allowedRoles={['ADMIN', 'FINANCE']} />}>
-                    <Route path="/entries/*" element={<Sales />} /> {/* Fallback or specific */}
+                    <Route path="/entries/*" element={<Sales />} />
                     <Route path="/entries/sales" element={<Sales />} />
                     <Route path="/entries/purchase" element={<Purchase />} />
                     <Route path="/entries/payment" element={<Payment />} />
@@ -193,33 +216,8 @@ const AppRoutes = ({ onLogout, currentUser }) => {
                     <Route path="/bank/details" element={<BankDetails />} />
                     <Route path="/transaction/entry" element={<TransactionEntry />} />
 
-                    <Route path="/processing/disbursement" element={<PayDisbursement />} />
-                    <Route path="/processing/cheque-printing" element={<ChequePrinting />} />
-                    <Route path="/processing/cheque-single" element={<SingleChequePrinting />} />
-                    <Route path="/processing/cheque-history" element={<ChequePrintHistory />} />
-
-                    {/* Finance Reports */}
                     <Route path="/reports/bank-transfer-advice" element={<BankTransferAdvice />} />
                     <Route path="/reports/crystal" element={<CrystalReporting />} />
-
-                    {/* Banking Integrations */}
-                    <Route path="/banking/bns" element={<BankIntegrations bank="BNS" />} />
-                    <Route path="/banking/ncb" element={<BankIntegrations bank="NCB" />} />
-                    <Route path="/banking/jn" element={<BankIntegrations bank="JN" />} />
-                    <Route path="/banking/jmmb" element={<BankIntegrations bank="JMMB" />} />
-                    <Route path="/banking/sagicor" element={<BankIntegrations bank="SAGICOR" />} />
-                    <Route path="/banking/citibank" element={<BankIntegrations bank="CITIBANK" />} />
-                    <Route path="/banking/payment-advice" element={<ModulePlaceholder title="Electronic Payment Advice Module" />} />
-
-                    {/* Statutory (Finance usually handles payments/filing) */}
-                    <Route path="/statutory/p24" element={<P24Report />} />
-                    <Route path="/statutory/p45" element={<JamaicaStatutory type="P45" />} />
-                    <Route path="/statutory/nht" element={<NHTReport />} />
-                    <Route path="/statutory/nis-nht" element={<JamaicaStatutory type="NIS-NHT" />} />
-                    <Route path="/statutory/s01" element={<JamaicaStatutory type="S01" />} />
-                    <Route path="/statutory/s02" element={<JamaicaStatutory type="S02" />} />
-                    <Route path="/statutory/pension" element={<JamaicaStatutory type="Pension" />} />
-                    <Route path="/statutory/tax-upload" element={<JamaicaStatutory type="TaxUpload" />} />
                 </Route>
 
                 {/* 4. Admin Only Modules */}
@@ -236,9 +234,11 @@ const AppRoutes = ({ onLogout, currentUser }) => {
                 </Route>
 
                 {/* 5. Employee Access (Self Service) */}
-                <Route element={<ProtectedRoute user={currentUser} allowedRoles={['ADMIN', 'HR_MANAGER', 'FINANCE', 'EMPLOYEE']} />}>
+                <Route element={<ProtectedRoute user={currentUser} allowedRoles={['ADMIN', 'HR_MANAGER', 'FINANCE', 'EMPLOYEE', 'STAFF']} />}>
                     <Route path="/employee/payslips" element={<MyPayslips />} />
                     <Route path="/employee/documents" element={<EmployeeDocuments />} />
+                    <Route path="/leave/request" element={<LeaveRequest />} />
+                    <Route path="/employee/profile" element={<EmployeeProfile />} />
                     {/* Shared Routes or Common Pages */}
                     <Route path="/transactions" element={<TransactionRecords />} />
                 </Route>
