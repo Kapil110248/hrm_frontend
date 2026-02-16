@@ -149,7 +149,7 @@ const TransactionEntry = () => {
             setLoading(true);
             const payload = {
                 companyId: selectedCompany.id,
-                employeeId: targetEmp.id,
+                employeeId: targetEmp.employeeId, // Send the string ID (e.g., EMP001) instead of UUID
                 transactionDate: formData.transDate,
                 type: formData.type || 'EARNING',
                 code: formData.code,
@@ -183,8 +183,9 @@ const TransactionEntry = () => {
                 alert(response.message || "Entry failed.");
             }
         } catch (err) {
-            console.error(err);
-            alert("Connection error.");
+            console.error("Transaction Error:", err);
+            const errorMessage = err.response?.data?.message || err.message || "Connection error.";
+            alert(`Uplink Error: ${errorMessage}`);
         } finally {
             setLoading(false);
         }

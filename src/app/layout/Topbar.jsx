@@ -22,6 +22,7 @@ const Topbar = ({ onLogout, onSelectCompany, companyName, isCompanySelected = fa
                     label: 'General',
                     subItems: [
                         { label: 'General Details', action: 'general_details' },
+                        { label: 'Transaction Protocols', action: 'transaction_codes' },
                         {
                             label: 'Additional',
                             subItems: [
@@ -328,6 +329,7 @@ const Topbar = ({ onLogout, onSelectCompany, companyName, isCompanySelected = fa
                 'system_settings': '/company/system-settings',
                 'customized_modules': '/company/custom-modules',
                 'bank_details': '/bank/details',
+                'transaction_codes': '/company/transaction-codes',
                 'all_entries': '/transaction/entry',
                 'user_labels': '/processing/user-labels',
                 'mass_entry': '/processing/mass-entry',
