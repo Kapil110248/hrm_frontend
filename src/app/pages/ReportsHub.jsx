@@ -58,12 +58,12 @@ const ReportsHub = () => {
     ];
 
     const handleReportSelect = (report) => {
-        if (report.path) {
-            navigate(report.path);
-        } else {
-            setSelectedReport(report);
-            fetchAggregateStats();
-        }
+        setSelectedReport(report);
+        // Reset aggregates when switching reports, or maybe keep them if they are general?
+        // The fetchAggregateStats function seems to fetch company-wide payrolls, so it might be the same for all?
+        // Actually, let's just refetch to be safe and show loading state.
+        setAggregateData({ count: 0, gross: 0, tax: 0, net: 0 });
+        fetchAggregateStats();
     };
 
     return (
@@ -316,6 +316,20 @@ const ReportsHub = () => {
 
                             {/* Floating Action Buttons */}
                             <div className="absolute bottom-40 right-6 flex flex-col gap-3 z-30 no-print">
+                                {selectedReport?.path && (
+                                    <button
+                                        onClick={() => navigate(selectedReport.path)}
+                                        className="flex items-center gap-2 px-4 py-3 bg-gray-800 text-white rounded shadow hover:bg-gray-900 group"
+                                    >
+                                        <div className="p-1 bg-white/20 rounded-full group-hover:bg-white/30 transition-colors">
+                                            <ChevronRight size={16} />
+                                        </div>
+                                        <div className="flex flex-col items-start leading-none">
+                                            <span className="text-[9px] font-bold uppercase opacity-70">Proceed to</span>
+                                            <span className="text-sm font-bold">Open Module</span>
+                                        </div>
+                                    </button>
+                                )}
                                 <button
                                     onClick={() => {
                                         const content = `STATUTORY REPORT - ${selectedReport.title}
