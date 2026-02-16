@@ -50,7 +50,10 @@ const ChequePrinting = () => {
     const [printing, setPrinting] = useState(false);
     const [activeUser] = useState(JSON.parse(localStorage.getItem('currentUser') || '{}'));
     const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
-    const [period, setPeriod] = useState('Feb-2026');
+    const [period, setPeriod] = useState(() => {
+        const d = new Date();
+        return d.toLocaleString('default', { month: 'short' }) + '-' + d.getFullYear();
+    });
     const [queue, setQueue] = useState([]);
     const [settings, setSettings] = useState({
         bankAccount: 'BNS - MAIN OPERATING (****8932)',
@@ -154,18 +157,18 @@ const ChequePrinting = () => {
                     <div className="bg-blue-50 border border-blue-200 p-3 rounded text-blue-900 text-xs flex items-start gap-2">
                         <Printer size={16} className="shrink-0 mt-0.5" />
                         <div>
-                             You are about to generate and log <strong>{queue.length} cheques</strong> starting from sequence <strong>#{settings.startingCheque}</strong>.
+                            You are about to generate and log <strong>{queue.length} cheques</strong> starting from sequence <strong>#{settings.startingCheque}</strong>.
                         </div>
                     </div>
                     <p className="text-gray-600 italic text-[10px]">Ensure the correct stationery is loaded in the active device.</p>
                     <div className="flex justify-end gap-2 mt-2">
-                        <button 
+                        <button
                             onClick={() => setShowPrintModal(false)}
                             className="px-4 py-2 bg-gray-200 text-gray-700 font-bold uppercase text-[10px] rounded-sm hover:bg-gray-300 transition-colors"
                         >
                             Cancel
                         </button>
-                        <button 
+                        <button
                             onClick={handlePrint}
                             className="px-4 py-2 bg-blue-800 text-white font-bold uppercase text-[10px] rounded-sm hover:bg-blue-900 transition-colors shadow-sm"
                         >
@@ -187,10 +190,16 @@ const ChequePrinting = () => {
                         <select
                             value={period}
                             onChange={(e) => setPeriod(e.target.value)}
-                            className="text-xs font-bold p-1 border border-gray-400 outline-none uppercase bg-white"
+                            className="text-xs font-bold p-1 border border-gray-400 outline-none uppercase bg-white cursor-pointer"
                         >
-                            <option value="Feb-2026">Feb-2026</option>
-                            <option value="Jan-2026">Jan-2026</option>
+                            {[...Array(36)].map((_, i) => {
+                                const d = new Date();
+                                d.setMonth(d.getMonth() - 12 + i); // From 12 months ago to 24 months ahead
+                                const month = d.toLocaleString('default', { month: 'short' });
+                                const year = d.getFullYear();
+                                const val = `${month}-${year}`;
+                                return <option key={val} value={val}>{val}</option>;
+                            })}
                         </select>
                     </div>
                     {loading && <div className="text-[10px] font-black text-blue-700 italic animate-pulse flex items-center gap-1"><Loader2 size={12} className="animate-spin" /> SCANNING QUEUE...</div>}

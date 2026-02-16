@@ -5,29 +5,35 @@ import { api } from '../../services/api';
 
 const AdvancePayment = () => {
     const navigate = useNavigate();
-    const [loading, setLoading] = useState(false);
     const [selectedEmployee, setSelectedEmployee] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
     const [amount, setAmount] = useState('');
     const [terms, setTerms] = useState('1 Month (Full Deduction)');
     const [saveStatus, setSaveStatus] = useState(null); // null, 'saving', 'success'
-    const [disburseStatus, setDisburseStatus] = useState(null); // null, 'processing', 'success'
-    const [recentTransactions, setRecentTransactions] = useState([]);
+    const [disburseStatus, setDisburseStatus] = useState(null);
+    const [selectedCompany, setSelectedCompany] = useState(() => {
+        return JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+    });
     const [employees, setEmployees] = useState([]);
+    const [recentTransactions, setRecentTransactions] = useState([]);
+    const [loading, setLoading] = useState(false);
     const [activeUser] = useState(JSON.parse(localStorage.getItem('currentUser') || '{}'));
-    const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
 
     const fetchInitial = async () => {
-        if (!selectedCompany.id) return;
+        // Re-read from localStorage to ensure we have the latest
+        const currentCompany = JSON.parse(localStorage.getItem('selectedCompany') || '{}');
+        if (!currentCompany.id) return;
+
         try {
             setLoading(true);
             const [empRes, advRes] = await Promise.all([
-                api.fetchEmployees(selectedCompany.id),
-                api.fetchAdvancePayments({ companyId: selectedCompany.id })
+                api.fetchEmployees(currentCompany.id),
+                api.fetchAdvancePayments({ companyId: currentCompany.id })
             ]);
-
             if (empRes.success && advRes.success) {
                 const allAdvances = advRes.data || [];
+                // Update internal state if it changed
+                setSelectedCompany(currentCompany);
 
                 setEmployees((empRes.data || []).map(e => {
                     // Calculate outstanding balance from PAID advances
@@ -49,7 +55,10 @@ const AdvancePayment = () => {
                     employee: a.employee ? `${a.employee.firstName} ${a.employee.lastName}` : 'Unknown',
                     amount: parseFloat(a.amount),
                     status: a.status,
-                    color: a.status === 'PAID' ? 'text-green-600' : a.status === 'APPROVED' ? 'text-blue-600' : 'text-yellow-600'
+                    color: a.status === 'PAID' ? 'text-green-600' :
+                        a.status === 'APPROVED' ? 'text-blue-600' :
+                            a.status === 'REJECTED' ? 'text-red-600' :
+                                'text-yellow-600'
                 })));
             }
         } catch (err) {
@@ -81,14 +90,14 @@ const AdvancePayment = () => {
 
     const getCurrentPeriod = () => {
         const now = new Date();
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
         return `${months[now.getMonth()]}-${now.getFullYear()}`;
     };
 
     const getNextPeriod = () => {
         const now = new Date();
         now.setMonth(now.getMonth() + 1);
-        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const months = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
         return `${months[now.getMonth()]}-${now.getFullYear()}`;
     };
 
@@ -101,9 +110,9 @@ const AdvancePayment = () => {
                 companyId: selectedCompany.id,
                 employeeId: selectedEmployee.id,
                 amount: parseFloat(amount),
-                purpose: `Advance Payment - ${terms}`,
+                reason: `Advance Payment - ${terms}`,
                 status: 'PENDING',
-                requestedBy: activeUser.email,
+                requestDate: new Date(),
                 installments: getInstallmentsCount(),
                 deductionStart: getNextPeriod() // Default to next month
             };
@@ -141,7 +150,7 @@ const AdvancePayment = () => {
                     approvedBy: activeUser.email,
                     paymentDate: new Date().toISOString(),
                     installments: getInstallmentsCount(),
-                    deductionStart: getNextPeriod() // Default to next month
+                    deductionStart: getNextPeriod() // Default to next month (UPPERCASE)
                 };
                 const response = await api.createAdvancePayment(payload);
                 if (response.success) {
@@ -157,6 +166,67 @@ const AdvancePayment = () => {
                 console.error(err);
                 setDisburseStatus(null);
             }
+        }
+    };
+
+    const handleApprove = async (tx) => {
+        const confirm = window.confirm(`APPROVE REQUEST: Are you sure you want to approve this advance for ${tx.employee}?`);
+        if (!confirm) return;
+
+        try {
+            setLoading(true);
+            const response = await api.approveAdvancePayment(tx.id, {
+                approvedBy: activeUser.email
+            });
+            if (response.success) {
+                alert("REQUEST APPROVED: The status is now set to APPROVED. Final disbursement is required to release funds.");
+                fetchInitial();
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error approving request.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleMarkPaid = async (tx) => {
+        const confirm = window.confirm(`EXECUTE DISBURSEMENT: Confirm bank transfer and ledger update for ${tx.employee}?`);
+        if (!confirm) return;
+
+        try {
+            setLoading(true);
+            const response = await api.markAdvancePaymentAsPaid(tx.id, {
+                paymentDate: new Date().toISOString()
+            });
+            if (response.success) {
+                alert("SETTLEMENT FINALIZED: Bank transfer initiated and payroll deductions scheduled.");
+                fetchInitial();
+            }
+        } catch (err) {
+            console.error(err);
+            alert("Error processing payment.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleReject = async (tx) => {
+        const reason = window.prompt("Reason for rejection:");
+        if (reason === null) return;
+
+        try {
+            setLoading(true);
+            const response = await api.rejectAdvancePayment(tx.id, {
+                rejectionReason: reason
+            });
+            if (response.success) {
+                fetchInitial();
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -345,13 +415,14 @@ const AdvancePayment = () => {
                                         <th className="p-4 border-r border-gray-50">Settlement Date</th>
                                         <th className="p-4 border-r border-gray-50">Agent Name</th>
                                         <th className="p-4 text-right border-r border-gray-50">Gross Amount</th>
-                                        <th className="p-4 text-center">Protocol Status</th>
+                                        <th className="p-4 text-center border-r border-gray-50">Protocol Status</th>
+                                        <th className="p-4 text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody className="font-bold">
                                     {recentTransactions.length === 0 ? (
                                         <tr>
-                                            <td colSpan={4} className="p-12 text-center text-gray-300 italic font-black uppercase tracking-[0.4em] select-none">Buffer is currently empty</td>
+                                            <td colSpan={5} className="p-12 text-center text-gray-300 italic font-black uppercase tracking-[0.4em] select-none">Buffer is currently empty</td>
                                         </tr>
                                     ) : (
                                         recentTransactions.map(tx => (
@@ -359,10 +430,49 @@ const AdvancePayment = () => {
                                                 <td className="p-4 text-gray-400 font-mono tracking-tighter">{tx.date}</td>
                                                 <td className="p-4 text-blue-900 uppercase font-black tracking-tight group-hover:underline">{tx.employee}</td>
                                                 <td className="p-4 text-right font-black italic tabular-nums text-blue-800 tracking-tighter group-hover:scale-105 transition-transform origin-right">$ {tx.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                                                <td className="p-4 text-center">
+                                                <td className="p-4 text-center border-r border-gray-50">
                                                     <span className={`px-3 py-1 bg-white border rounded-full font-black italic uppercase text-[8px] tracking-widest shadow-sm ${tx.color} border-current opacity-80 group-hover:opacity-100 transition-opacity`}>
                                                         {tx.status}
                                                     </span>
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    {tx.status === 'PENDING' ? (
+                                                        (activeUser.role === 'ADMIN' || activeUser.role === 'FINANCE') ? (
+                                                            <div className="flex gap-2 justify-center">
+                                                                <button
+                                                                    onClick={() => handleApprove(tx)}
+                                                                    className="px-2 py-1 bg-blue-600 text-white rounded text-[8px] font-black uppercase hover:bg-blue-700 transition-colors shadow-sm"
+                                                                >
+                                                                    Approve
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleReject(tx)}
+                                                                    className="px-2 py-1 bg-red-600 text-white rounded text-[8px] font-black uppercase hover:bg-red-700 transition-colors shadow-sm"
+                                                                >
+                                                                    Reject
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-[8px] font-black text-orange-500 italic uppercase">Awaiting Approval</span>
+                                                        )
+                                                    ) : tx.status === 'APPROVED' ? (
+                                                        (activeUser.role === 'ADMIN' || activeUser.role === 'FINANCE') ? (
+                                                            <div className="flex justify-center">
+                                                                <button
+                                                                    onClick={() => handleMarkPaid(tx)}
+                                                                    className="px-2 py-1 bg-green-600 text-white rounded text-[8px] font-black uppercase hover:bg-green-700 transition-colors shadow-sm"
+                                                                >
+                                                                    Disburse / Pay
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <span className="text-[8px] font-black text-blue-500 italic uppercase">Pending Payout</span>
+                                                        )
+                                                    ) : tx.status === 'REJECTED' ? (
+                                                        <span className="text-[8px] font-black text-red-600 italic uppercase">Refused</span>
+                                                    ) : (
+                                                        <span className="text-[8px] font-black text-gray-300 italic uppercase">Locked</span>
+                                                    )}
                                                 </td>
                                             </tr>
                                         ))

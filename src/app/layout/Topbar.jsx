@@ -209,7 +209,8 @@ const Topbar = ({ onLogout, onSelectCompany, companyName, isCompanySelected = fa
             }
 
             if (userRole === 'HR_MANAGER') {
-                if (menu.name === 'Finance') return false;
+                // HR Manager can access Finance menu for payroll/disbursement
+                if (menu.name === 'Finance') return true;
             }
 
             if (userRole === 'FINANCE') {
@@ -256,7 +257,7 @@ const Topbar = ({ onLogout, onSelectCompany, companyName, isCompanySelected = fa
 
         switch (userRole) {
             case 'HR_MANAGER':
-                return ['System', 'HRM', 'Reports'].includes(menu.name);
+                return ['System', 'Finance', 'HRM', 'Reports'].includes(menu.name);
             case 'FINANCE':
                 return ['System', 'Finance', 'Reports', 'Files'].includes(menu.name);
             case 'EMPLOYEE':

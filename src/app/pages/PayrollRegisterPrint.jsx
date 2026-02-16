@@ -126,6 +126,44 @@ const PayrollRegisterPrint = () => {
                             return true;
                         });
 
+                        // --- MULTI-LEVEL SORTING ENGINE ---
+                        const getSortValue = (p, field) => {
+                            if (!p || !p.employee) return '';
+                            switch (field) {
+                                case 'Employee ID': return p.employee.employeeId || '';
+                                case 'Department': return p.employee.department?.name || p.employee.department || '';
+                                case 'Branch': return p.employee.city || p.employee.parish || p.employee.branch || '';
+                                default: return '';
+                            }
+                        };
+
+                        const compare = (a, b, field, sortDir) => {
+                            const valA = getSortValue(a, field);
+                            const valB = getSortValue(b, field);
+                            if (valA < valB) return sortDir === 'Ascending' ? -1 : 1;
+                            if (valA > valB) return sortDir === 'Ascending' ? 1 : -1;
+                            return 0;
+                        };
+
+                        processedData.sort((a, b) => {
+                            // Level 1
+                            if (orderOptions.primaryOrder !== 'None') {
+                                const res1 = compare(a, b, orderOptions.primaryOrder, orderOptions.primarySort);
+                                if (res1 !== 0) return res1;
+                            }
+                            // Level 2
+                            if (orderOptions.secondaryOrder !== 'None') {
+                                const res2 = compare(a, b, orderOptions.secondaryOrder, orderOptions.secondarySort);
+                                if (res2 !== 0) return res2;
+                            }
+                            // Level 3
+                            if (orderOptions.tertiaryOrder !== 'None') {
+                                const res3 = compare(a, b, orderOptions.tertiaryOrder, orderOptions.tertiarySort);
+                                if (res3 !== 0) return res3;
+                            }
+                            return 0;
+                        });
+
                         setPayrollData(processedData);
 
                         // Calculate totals

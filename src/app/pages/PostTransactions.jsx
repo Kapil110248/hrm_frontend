@@ -50,13 +50,14 @@ const PostTransactions = () => {
     const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
 
     const [filters, setFilters] = useState({
-        period: 'Feb-2026',
+        period: new Date().toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase(),
         type: 'All'
     });
 
     const [pendingTransactions, setPendingTransactions] = useState([]);
+    const [periods, setPeriods] = useState([]);
     const [selectedIds, setSelectedIds] = useState([]);
-    
+
     // UI States
     const [toast, setToast] = useState(null);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -99,8 +100,23 @@ const PostTransactions = () => {
         }
     };
 
+    const generatePeriods = () => {
+        const months = [];
+        const today = new Date();
+        for (let i = 0; i < 12; i++) {
+            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
+            const label = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+            const value = d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
+            months.push({ label, value });
+        }
+        setPeriods(months);
+    };
+
     useEffect(() => {
-        fetchPending();
+        if (selectedCompany.id) {
+            generatePeriods();
+            fetchPending();
+        }
     }, [selectedCompany.id, filters.type, filters.period]);
 
     const handleSelectAll = () => {
@@ -167,21 +183,21 @@ const PostTransactions = () => {
                 <div className="flex flex-col gap-4">
                     <div className="text-xs text-gray-700 font-medium">
                         You are about to post <span className="font-black text-blue-700">{selectedIds.length}</span> transactions.
-                        <br/><br/>
+                        <br /><br />
                         Total Value: <span className="font-black text-blue-700">${formatCurrency(totalSelected)}</span>
-                        <br/><br/>
+                        <br /><br />
                         <span className="text-red-600 font-bold uppercase italic text-[10px]">
                             Warning: This action cannot be undone. Items will be locked.
                         </span>
                     </div>
                     <div className="flex justify-end gap-2 mt-2">
-                        <button 
+                        <button
                             onClick={() => setShowConfirmModal(false)}
                             className="px-4 py-2 bg-gray-200 text-gray-700 font-bold uppercase text-[10px] rounded-sm hover:bg-gray-300 transition-colors"
                         >
                             Cancel
                         </button>
-                        <button 
+                        <button
                             onClick={confirmPost}
                             className="px-4 py-2 bg-blue-600 text-white font-bold uppercase text-[10px] rounded-sm hover:bg-blue-700 transition-colors shadow-sm flex items-center gap-2"
                         >
@@ -213,8 +229,9 @@ const PostTransactions = () => {
                             onChange={(e) => setFilters({ ...filters, period: e.target.value })}
                             className="border-2 border-white border-r-gray-400 border-b-gray-400 p-1.5 bg-white shadow-inner outline-none focus:border-blue-500 font-black text-blue-900"
                         >
-                            <option value="Feb-2026">February 2026</option>
-                            <option value="Jan-2026">January 2026</option>
+                            {periods.map(p => (
+                                <option key={p.value} value={p.value}>{p.label}</option>
+                            ))}
                         </select>
                     </div>
                     <div className="flex flex-col gap-1">
@@ -307,7 +324,7 @@ const PostTransactions = () => {
                         <span className="text-[9px] text-gray-500">Commitment Value</span>
                         <span className="text-lg text-blue-800 tracking-tighter">${formatCurrency(totalSelected)}</span>
                     </div>
-                     <div className="flex flex-col border-l border-gray-400 pl-6 opacity-50">
+                    <div className="flex flex-col border-l border-gray-400 pl-6 opacity-50">
                         <span className="text-[9px] text-gray-500">Total Pending</span>
                         <span className="text-xs text-gray-600 tracking-tighter">${formatCurrency(pendingTransactions.reduce((sum, t) => sum + t.amount, 0))}</span>
                     </div>

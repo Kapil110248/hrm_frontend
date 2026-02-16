@@ -58,6 +58,10 @@ export const api = {
         return apiClient.put(`/employees/${id}`, data);
     },
 
+    updateSelfProfile: async (data) => {
+        return apiClient.put('/employees/profile', data);
+    },
+
     bulkUpdateEmployees: async (data) => {
         return apiClient.put('/employees/bulk-update', data);
     },
@@ -69,6 +73,9 @@ export const api = {
     fetchAdminStats: async (companyId) => {
         const query = companyId ? `?companyId=${companyId}` : '';
         return apiClient.get(`/dashboard/admin-stats${query}`);
+    },
+    fetchEmployeeDashboardStats: async () => {
+        return apiClient.get('/dashboard/employee-stats');
     },
 
     fetchAuditLogs: async (limit = 10) => {
@@ -140,6 +147,9 @@ export const api = {
     },
     bulkSendEmails: async (data) => {
         return apiClient.post('/payrolls/bulk-email', data);
+    },
+    transmitBankAdvice: async (data) => {
+        return apiClient.post('/payrolls/transmit-advice', data);
     },
 
     fetchDepartments: async (companyId) => {
@@ -397,5 +407,12 @@ export const api = {
     getTransactionCodes: (isActive) => apiClient.get(`/transaction-codes${isActive !== undefined ? `?isActive=${isActive}` : ''}`),
     createTransactionCode: (data) => apiClient.post('/transaction-codes', data),
     updateTransactionCode: (id, data) => apiClient.put(`/transaction-codes/${id}`, data),
-    deleteTransactionCode: (id) => apiClient.delete(`/transaction-codes/${id}`)
+    deleteTransactionCode: (id) => apiClient.delete(`/transaction-codes/${id}`),
+
+    // User Management
+    fetchUsers: () => apiClient.get('/users'),
+    changePassword: (data) => apiClient.put('/users/security', data),
+    createSystemUser: (data) => apiClient.post('/users', data),
+    updateSystemUser: (id, data) => apiClient.put(`/users/${id}`, data),
+    deleteSystemUser: (id) => apiClient.delete(`/users/${id}`)
 };

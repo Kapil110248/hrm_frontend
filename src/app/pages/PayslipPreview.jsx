@@ -156,7 +156,9 @@ const PayslipPreview = () => {
                                 <div className="text-right px-2">
                                     <p className="text-[9px] font-black text-blue-600 uppercase tracking-widest mb-2 italic">Assignment / Cost Center</p>
                                     <p className="text-lg font-black text-gray-900 uppercase italic tracking-tight">{selectedEmp.department}</p>
-                                    <p className="text-xs font-black text-gray-400 mt-1 uppercase tracking-widest">TRN: XX-XX-{selectedEmp.trn.slice(-3)}</p>
+                                    <p className="text-xs font-black text-gray-400 mt-1 uppercase tracking-widest">
+                                        TRN: {selectedEmp.trn && selectedEmp.trn !== 'XXX-XXX-XXX' ? `***-***-${selectedEmp.trn.slice(-3)}` : 'SECURE-DATA-MASKED'}
+                                    </p>
                                 </div>
                             </div>
 

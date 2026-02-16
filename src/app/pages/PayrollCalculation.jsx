@@ -10,7 +10,7 @@ const PayrollCalculation = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const queryParams = new URLSearchParams(location.search);
-    const initialPeriod = queryParams.get('period') || '2026-02';
+    const initialPeriod = queryParams.get('period') || new Date().toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
 
     const [period, setPeriod] = useState(initialPeriod);
     const [isCalculating, setIsCalculating] = useState(false);
@@ -199,9 +199,9 @@ const PayrollCalculation = () => {
                             Tax Period
                         </label>
                         <input
-                            type="month"
+                            type="text"
                             value={period}
-                            onChange={(e) => setPeriod(e.target.value)}
+                            readOnly={true}
                             className="text-xs font-black text-blue-900 focus:outline-none bg-transparent cursor-pointer flex-1 text-right focus:ring-0 appearance-none border-none p-0 uppercase"
                         />
                     </div>

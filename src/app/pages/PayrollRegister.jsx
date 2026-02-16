@@ -7,6 +7,7 @@ const PayrollRegister = () => {
     const navigate = useNavigate();
 
     // Order Options state
+    const [activeUser] = useState(JSON.parse(localStorage.getItem('currentUser') || '{}'));
     const [orderOptions, setOrderOptions] = useState({
         primaryOrder: 'None',
         primarySort: 'Ascending',
@@ -32,8 +33,8 @@ const PayrollRegister = () => {
 
     // Filter Options state
     const [filterOptions, setFilterOptions] = useState({
-        payPeriod: '2',
-        ofYear: '2026',
+        payPeriod: String(new Date().getMonth() + 1),
+        ofYear: String(new Date().getFullYear()),
         paySeries: '-- ALL ACTIVE SERIES --',
         payGrade: '-- ALL SERVICE GRADES --',
         employee: '-- ALL STAFF MEMBERS --',
@@ -58,7 +59,7 @@ const PayrollRegister = () => {
         const dbDepts = departments.map(d => d.name);
 
         return {
-            paySeries: ['-- ALL ACTIVE SERIES --', ...new Set([...standardPaySeries, ...dbPaySeries])],
+            paySeries: ['-- ALL ACTIVE SERIES --', ...new Set([...standardPaySeries, ...dbPaySeries.filter(s => !['Monthly', 'Weekly', 'Bi-Weekly', 'monthly', 'weekly', 'bi-weekly', 'MONTHLY', 'WEEKLY', 'BI-WEEKLY'].includes(s))])],
             payGrade: ['-- ALL SERVICE GRADES --', ...new Set([...standardPayGrades, ...dbPayGrades])],
             branch: ['-- ALL REGIONAL BRANCHES --', ...new Set([...standardBranches, ...dbBranches])],
             department: ['-- ALL COST CENTERS --', ...new Set([...dbDepts])]
@@ -145,7 +146,45 @@ const PayrollRegister = () => {
             });
 
             if (res.success && res.data && res.data.length > 0) {
-                let filteredData = res.data;
+                let filteredData = [...res.data];
+
+                // --- MULTI-LEVEL SORTING ENGINE ---
+                const getSortValue = (p, field) => {
+                    if (!p || !p.employee) return '';
+                    switch (field) {
+                        case 'Employee ID': return p.employee.employeeId || '';
+                        case 'Department': return p.employee.department?.name || p.employee.department || '';
+                        case 'Branch': return p.employee.city || p.employee.parish || p.employee.branch || '';
+                        default: return '';
+                    }
+                };
+
+                const compare = (a, b, field, sortDir) => {
+                    const valA = getSortValue(a, field);
+                    const valB = getSortValue(b, field);
+                    if (valA < valB) return sortDir === 'Ascending' ? -1 : 1;
+                    if (valA > valB) return sortDir === 'Ascending' ? 1 : -1;
+                    return 0;
+                };
+
+                filteredData.sort((a, b) => {
+                    // Level 1
+                    if (orderOptions.primaryOrder !== 'None') {
+                        const res1 = compare(a, b, orderOptions.primaryOrder, orderOptions.primarySort);
+                        if (res1 !== 0) return res1;
+                    }
+                    // Level 2
+                    if (orderOptions.secondaryOrder !== 'None') {
+                        const res2 = compare(a, b, orderOptions.secondaryOrder, orderOptions.secondarySort);
+                        if (res2 !== 0) return res2;
+                    }
+                    // Level 3
+                    if (orderOptions.tertiaryOrder !== 'None') {
+                        const res3 = compare(a, b, orderOptions.tertiaryOrder, orderOptions.tertiarySort);
+                        if (res3 !== 0) return res3;
+                    }
+                    return 0;
+                });
 
                 // Client-side filtering
                 if (filterOptions.department && !filterOptions.department.includes('ALL')) {
@@ -164,7 +203,11 @@ const PayrollRegister = () => {
                 }
 
                 if (filterOptions.paySeries && !filterOptions.paySeries.includes('ALL')) {
-                    filteredData = filteredData.filter(p => p.employee?.payFrequency === filterOptions.paySeries);
+                    const filterVal = filterOptions.paySeries.toLowerCase();
+                    filteredData = filteredData.filter(p => {
+                        const empFreq = (p.employee?.payFrequency || '').toLowerCase();
+                        return empFreq.includes(filterVal) || filterVal.includes(empFreq);
+                    });
                 }
 
                 if (filterOptions.payGrade && !filterOptions.payGrade.includes('ALL')) {
@@ -342,21 +385,28 @@ const PayrollRegister = () => {
                                     <div className="flex flex-wrap items-center gap-4 bg-[#D4D0C8]/30 p-3 border border-gray-300 shadow-inner rounded-sm">
                                         <div className="flex items-center gap-2">
                                             <label className="text-gray-500 font-black uppercase text-[9px] tracking-widest">Period</label>
-                                            <input
-                                                type="text"
+                                            <select
                                                 value={filterOptions.payPeriod}
                                                 onChange={(e) => handleFilterChange('payPeriod', e.target.value)}
-                                                className="w-12 p-1.5 border border-blue-200 bg-white text-blue-900 font-black text-center shadow-inner"
-                                            />
+                                                className="w-24 p-1.5 border border-blue-200 bg-white text-blue-900 font-black shadow-inner outline-none cursor-pointer text-center text-xs"
+                                            >
+                                                {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map((m, i) => (
+                                                    <option key={i + 1} value={i + 1}>{m}</option>
+                                                ))}
+                                            </select>
                                         </div>
                                         <div className="flex items-center gap-2">
                                             <span className="text-gray-400 font-black text-[9px] uppercase tracking-widest">Master Year</span>
-                                            <input
-                                                type="text"
+                                            <select
                                                 value={filterOptions.ofYear}
                                                 onChange={(e) => handleFilterChange('ofYear', e.target.value)}
-                                                className="w-20 p-1.5 border border-blue-200 bg-white text-blue-900 font-black text-center shadow-inner"
-                                            />
+                                                className="w-24 p-1.5 border border-blue-200 bg-white text-blue-900 font-black shadow-inner outline-none cursor-pointer text-center text-xs"
+                                            >
+                                                {[...Array(5)].map((_, i) => {
+                                                    const y = new Date().getFullYear() - 2 + i;
+                                                    return <option key={y} value={y}>{y}</option>;
+                                                })}
+                                            </select>
                                         </div>
                                     </div>
 
@@ -469,7 +519,7 @@ const PayrollRegister = () => {
                     <span className="border-l border-gray-400 pl-4 uppercase">PERIOD: {filterOptions.payPeriod}-{filterOptions.ofYear}</span>
                 </div>
                 <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto justify-center sm:justify-end border-t sm:border-t-0 border-gray-300 pt-2 sm:pt-0">
-                    <span className="uppercase tracking-widest hidden xs:inline">Operator: ADMIN-01</span>
+                    <span className="uppercase tracking-widest hidden xs:inline">Operator: {activeUser.firstName ? `${activeUser.firstName} ${activeUser.lastName}` : 'ADMIN-01'}</span>
                     <span className="text-blue-800 font-black tracking-tighter italic">SMARTHRM ENGINE v5.1.0-A</span>
                 </div>
             </div>

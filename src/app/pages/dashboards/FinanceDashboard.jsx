@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { api } from '../../../services/api';
+import { formatPeriod } from '../../../utils/formatters';
+import { useNavigate } from 'react-router-dom';
 import {
     DollarSign, TrendingUp, CreditCard, Landmark,
-    FileText, ArrowRight, PieChart, Download, Wallet, Activity
+    FileText, ArrowRight, PieChart, Download, Wallet, Activity, CheckSquare, Calendar
 } from 'lucide-react';
 
 const FinanceDashboard = () => {
@@ -57,6 +58,7 @@ const FinanceDashboard = () => {
         { label: 'S01 Return', icon: <FileText size={18} />, path: '/statutory/s01', desc: 'Tax Compliance' },
         { label: 'GL Interface', icon: <PieChart size={18} />, path: '/reports/ledger', desc: 'General Ledger Export' },
         { label: 'Payroll Register', icon: <FileText size={18} />, path: '/payroll/register', desc: 'Detailed Breakdown' },
+        { label: 'Post Transactions', icon: <CheckSquare size={18} />, path: '/processing/post-transactions', desc: 'Commit Entries' },
         { label: 'Disbursement', icon: <DollarSign size={18} />, path: '/processing/disbursement', desc: 'Confirm Payments' },
     ];
 
@@ -74,8 +76,45 @@ const FinanceDashboard = () => {
         document.body.removeChild(link);
     };
 
-    const handleDownloadBankFiles = () => {
-        alert("Downloading bank transfer files...");
+    const handleDownloadBankFiles = async () => {
+        try {
+            const companyStr = localStorage.getItem('selectedCompany');
+            if (!companyStr) {
+                alert("Please select a company first.");
+                return;
+            }
+            const company = JSON.parse(companyStr);
+
+            const response = await api.exportBankFile({ companyId: company.id });
+            if (response.success && response.data) {
+                const { transfers, summary } = response.data;
+
+                if (transfers.length === 0) {
+                    alert("No pending bank transfers found for export.");
+                    return;
+                }
+
+                // Generate CSV
+                const header = "AccountNumber,AccountName,Amount,Reference,EmployeeID,TRN\n";
+                const rows = transfers.map(t =>
+                    `${t.accountNumber},"${t.accountName}",${t.amount},${t.reference},${t.employeeId},${t.trn}`
+                ).join("\n");
+
+                const csvContent = "data:text/csv;charset=utf-8," + header + rows;
+                const encodedUri = encodeURI(csvContent);
+                const link = document.createElement("a");
+                link.setAttribute("href", encodedUri);
+                link.setAttribute("download", `BANK_EXPORT_${company.code}_${new Date().toISOString().slice(0, 10)}.csv`);
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            } else {
+                alert("Failed to generate bank file.");
+            }
+        } catch (error) {
+            console.error("Export error:", error);
+            alert("An error occurred while exporting bank files.");
+        }
     };
 
     return (
@@ -86,6 +125,7 @@ const FinanceDashboard = () => {
                 </div>
             )}
             {/* Header */}
+            {/* Header */}
             <div className="border-b border-gray-300 pb-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
                     <h1 className="text-lg font-bold text-gray-800 uppercase tracking-tight">
@@ -93,12 +133,18 @@ const FinanceDashboard = () => {
                     </h1>
                     <p className="text-[10px] font-medium text-gray-500 uppercase tracking-widest mt-1">Treasury & Disbursement Operations</p>
                 </div>
-                <button
-                    onClick={handleExportFinancials}
-                    className="bg-gray-700 text-white px-4 py-1.5 rounded shadow-sm flex items-center gap-2 hover:bg-gray-800 transition-colors uppercase text-[10px] font-bold"
-                >
-                    <Download size={14} /> Export Data
-                </button>
+                <div className="flex items-center gap-4">
+                    <div className="bg-white px-3 py-1.5 border border-gray-300 rounded shadow-sm text-[10px] font-bold text-gray-700 uppercase flex items-center gap-2">
+                        <Calendar size={14} className="text-gray-400" />
+                        <span>PERIOD: {formatPeriod()}</span>
+                    </div>
+                    <button
+                        onClick={handleExportFinancials}
+                        className="bg-gray-700 text-white px-4 py-1.5 rounded shadow-sm flex items-center gap-2 hover:bg-gray-800 transition-colors uppercase text-[10px] font-bold"
+                    >
+                        <Download size={14} /> Export Data
+                    </button>
+                </div>
             </div>
 
             {/* Stats Grid */}

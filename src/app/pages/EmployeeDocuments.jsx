@@ -1,44 +1,68 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Download, ArrowLeft, Calendar, Shield } from 'lucide-react';
+import { api } from '../../services/api';
 
 const EmployeeDocuments = () => {
     const navigate = useNavigate();
 
-    const documents = [
-        {
-            id: 1,
-            name: 'Annual Assessment Report 2025',
-            type: 'Performance Review',
-            date: '15 Jan 2026',
-            category: 'HR',
-            size: '245 KB'
-        },
-        {
-            id: 2,
-            name: 'Employment Contract',
-            type: 'Legal Document',
-            date: '01 Jan 2024',
-            category: 'HR',
-            size: '512 KB'
-        },
-        {
-            id: 3,
-            name: 'Company Policies Handbook',
-            type: 'Reference',
-            date: '01 Jan 2026',
-            category: 'HR',
-            size: '1.2 MB'
-        },
-        {
-            id: 4,
-            name: 'Benefits Enrollment Form',
-            type: 'Benefits',
-            date: '10 Dec 2025',
-            category: 'HR',
-            size: '128 KB'
-        },
-    ];
+    const [loading, setLoading] = React.useState(true);
+    const [employee, setEmployee] = React.useState(null);
+    const [activeUser] = React.useState(JSON.parse(localStorage.getItem('currentUser') || '{}'));
+    const [documents, setDocuments] = React.useState([]);
+
+    React.useEffect(() => {
+        const fetchEmployeeData = async () => {
+            let fetchedName = null;
+            try {
+                setLoading(true);
+                // Fetch fresh employee data to ensure we have names
+                const res = await api.fetchEmployeeDashboardStats();
+
+                if (res.success && res.data.employee) {
+                    setEmployee(res.data.employee);
+                    fetchedName = `${res.data.employee.firstName} ${res.data.employee.lastName}`;
+                } else if (activeUser.firstName) {
+                    fetchedName = `${activeUser.firstName} ${activeUser.lastName}`;
+                }
+            } catch (err) {
+                console.error("Failed to load documents", err);
+            } finally {
+                // Determine name to use
+                const finalEmpName = fetchedName || (activeUser.firstName ? `${activeUser.firstName} ${activeUser.lastName}` : 'Employee');
+
+                setDocuments([
+                    {
+                        id: 'p24-2025',
+                        name: `P24 Statutory Certificate - 2025`,
+                        type: 'Tax Certificate',
+                        date: '01 Jan 2026',
+                        category: 'Tax',
+                        size: '42KB'
+                    },
+                    {
+                        id: 'contract',
+                        name: `Employment Agreement - ${finalEmpName}`,
+                        type: 'Legal',
+                        date: 'Refined in System',
+                        category: 'HR',
+                        size: '1.1MB'
+                    },
+                    {
+                        id: 'assessment',
+                        name: 'Annual Assessment Q4',
+                        type: 'Performance',
+                        date: '15 Jan 2026',
+                        category: 'HR',
+                        size: '89KB'
+                    }
+                ]);
+                setLoading(false);
+            }
+        };
+
+        fetchEmployeeData();
+    }, [activeUser]);
 
     const handleDownload = (doc) => {
         const content = `DOCUMENT: ${doc.name}

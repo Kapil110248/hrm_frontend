@@ -7,16 +7,35 @@ const GlobalSearch = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [category, setCategory] = useState('All');
 
-    // Mock Data for Search
+    // Dynamic Search Index (Navigation & Modules)
     const searchData = [
-        { id: 1, type: 'Employee', title: 'John Brown', subtitle: 'EMP001 - Sales Manager', path: '/employees' },
-        { id: 2, type: 'Employee', title: 'Sarah Smith', subtitle: 'EMP002 - Senior Develper', path: '/employees' },
-        { id: 3, type: 'Page', title: 'Payroll Register', subtitle: 'Processing > Payroll Register', path: '/payroll/register' },
-        { id: 4, type: 'Page', title: 'Bank Details', subtitle: 'Masters > Bank Details', path: '/bank/details' },
-        { id: 5, type: 'Report', title: 'P24 Report', subtitle: 'Statutory Reports > P24', path: '/reports/p24' },
-        { id: 6, type: 'Setting', title: 'Company Settings', subtitle: 'Admin > Configuration', path: '/company/settings' },
-        { id: 7, type: 'Employee', title: 'David Miller', subtitle: 'EMP009 - Operations', path: '/employees' },
-        { id: 8, type: 'Transaction', title: 'TRX-9001', subtitle: 'Posted Transaction - John Brown', path: '/processing/posted-register' },
+        // Employees
+        { id: 1, title: 'Employee Directory', subtitle: 'Manage staff records and profiles', path: '/employees', type: 'Employee' },
+        { id: 2, title: 'Attendance Ledger', subtitle: 'Daily check-in/out registers', path: '/attendance', type: 'Employee' },
+        { id: 3, title: 'Leave Applications', subtitle: 'Holidays, Sick Leave, CASUAL', path: '/leave', type: 'Employee' },
+
+        // Payroll & Finance
+        { id: 4, title: 'Payroll Register', subtitle: 'Master pay sheets and totals', path: '/payroll/register', type: 'Report' },
+        { id: 5, title: 'Salary Management', subtitle: 'Base pay and contract settings', path: '/salary', type: 'Employee' },
+        { id: 6, title: 'Payroll Calculation', subtitle: 'Run Jamaica Tax Engine', path: '/processing/payroll-calculation', type: 'Page' },
+        { id: 7, title: 'Processing Status', subtitle: 'System validation and errors', path: '/processing/status', type: 'Page' },
+        { id: 8, title: 'Payslip Management', subtitle: 'Generate and dispatch slips', path: '/payslips/manage', type: 'Page' },
+
+        // Reports
+        { id: 9, title: 'Employee Report', subtitle: 'Staff list with demographics', path: '/reports/employee', type: 'Report' },
+        { id: 10, title: 'Attendance Summary', subtitle: 'Work hour breakdowns', path: '/reports/attendance', type: 'Report' },
+        { id: 11, title: 'Salary Report', subtitle: 'Pay structure analysis', path: '/reports/salary', type: 'Report' },
+        { id: 12, title: 'Regulatory Hub', subtitle: 'NHT, NIS, S01, S02 Returns', path: '/reports/hub', type: 'Report' },
+
+        // Tools
+        { id: 13, title: 'System Search', subtitle: 'Global lookup tool', path: '/search', type: 'Page' },
+        { id: 14, title: 'Help & Knowledge', subtitle: 'Documentation and support', path: '/help', type: 'Page' },
+        { id: 15, title: 'File Manager', subtitle: 'Uploads and downloads', path: '/files', type: 'Page' },
+        { id: 16, title: 'System Logs', subtitle: 'Audit trail explorer', path: '/tools/audit', type: 'Page' },
+        { id: 17, title: 'Cheque Printing', subtitle: 'Physical payment slips batch/single', path: '/processing/cheque-printing', type: 'Page' },
+        { id: 18, title: 'Bank Transfers (BNS)', subtitle: 'Generate bank advice files', path: '/banking/bns', type: 'Page' },
+        { id: 19, title: 'S01 Monthly Return', subtitle: 'Statutory monthly payroll filing', path: '/statutory/s01', type: 'Report' },
+        { id: 20, title: 'P45 Termination', subtitle: 'Statutory termination certificate', path: '/statutory/p45', type: 'Report' },
     ];
 
     const filteredResults = searchData.filter(item => {
