@@ -29,7 +29,7 @@ const EmailPayslips = () => {
             const queueRes = await api.fetchPayrolls({
                 companyId: selectedCompany.id,
                 period: selectedPeriod,
-                status: 'Generated'
+                status: 'Finalized'
             });
             if (queueRes.success) {
                 setDisbursements(queueRes.data.map(p => ({
