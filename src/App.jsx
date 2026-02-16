@@ -4,6 +4,7 @@ import AppRoutes from './app/routes';
 import Login from './app/Login';
 import CompanySelection from './app/CompanySelection';
 import Topbar from './app/layout/Topbar';
+import { api } from './services/api';
 
 function App() {
   // Load state from localStorage on mount
@@ -44,7 +45,12 @@ function App() {
     setSelectedCompany(company);
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await api.logout();
+    } catch (error) {
+      console.error("Logout failed", error);
+    }
     setCurrentUser(null);
     setSelectedCompany(null);
     localStorage.removeItem('currentUser');

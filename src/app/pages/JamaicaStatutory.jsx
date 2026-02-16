@@ -12,21 +12,62 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
     const [loading, setLoading] = useState(false);
     const [payrollData, setPayrollData] = useState([]);
     const [company, setCompany] = useState(null);
+    const [employees, setEmployees] = useState([]);
+    const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
 
+    // Helper to format period for API (YYYY-MM to MMM-YYYY)
+    const formatPeriodForApi = (p) => {
+        if (!p) return '';
+        const [year, month] = p.split('-');
+        const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+        const monthIndex = parseInt(month) - 1;
+        return `${monthNames[monthIndex]}-${year}`;
+    };
+    
     useEffect(() => {
-        const fetchReportData = async () => {
+        const fetchInitialData = async () => {
             const companyStr = localStorage.getItem('selectedCompany');
             const c = companyStr ? JSON.parse(companyStr) : null;
             setCompany(c);
 
             if (!c) return;
+            
+            // If P45, fetch employees as well
+            if (type === 'P45') {
+                try {
+                    const empRes = await api.fetchEmployees(c.id);
+                    if (empRes.success) {
+                        setEmployees(empRes.data);
+                    }
+                } catch (err) {
+                    console.error("Failed to fetch employees", err);
+                }
+            }
+        };
+        fetchInitialData();
+    }, [type]);
+
+    useEffect(() => {
+        const fetchReportData = async () => {
+            if (!company) return;
 
             setLoading(true);
             try {
-                const res = await api.fetchPayrolls({
-                    companyId: c.id,
-                    period: period.toUpperCase() // Ensure uppercase
-                });
+                const params = {
+                    companyId: company.id
+                };
+                
+                // For P45, we fetch all payrolls for the employee (or company) to calculate YTD
+                // For others, we filter by period in the API
+                if (type !== 'P45') {
+                    params.period = formatPeriodForApi(period);
+                }
+                
+                if (selectedEmployeeId) {
+                    params.employeeId = selectedEmployeeId;
+                }
+
+                const res = await api.fetchPayrolls(params);
 
                 if (res.success) {
                     setPayrollData(res.data);
@@ -38,17 +79,56 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
             }
         };
         fetchReportData();
-    }, [period, type]);
+    }, [period, type, selectedEmployeeId, company]);
 
     const reports = {
         'P45': {
             title: 'P45 - Employee Termination Certificate',
             formCode: 'F-P45-TAJ',
             fields: [
-                { label: 'Cumulative Gross Pay', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.grossSalary || 0), 0).toFixed(2) },
-                { label: 'Cumulative Income Tax', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.tax || 0), 0).toFixed(2) }, // Total tax (PAYE + EdTax + NIS + NHT) or just PAYE? P45 usually implies PAYE. But p.tax in backend is totalTax. Let's use p.paye if available, else p.tax. Backend has nht, nis, edTax, paye.
-                { label: 'Total PAYE', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.paye || 0), 0).toFixed(2) },
-                { label: 'Employer TRN', category: 'Entity', value: () => company?.trn || 'NOT_FOUND' }
+                { 
+                    label: 'Cumulative Gross Pay', 
+                    category: 'Financials', 
+                    value: (data) => {
+                        const [year] = period.split('-');
+                        const yearData = data.filter(p => p.period.includes(year) && p.employeeId === selectedEmployeeId);
+                        return yearData.reduce((sum, p) => sum + parseFloat(p.grossSalary || 0), 0).toFixed(2);
+                    } 
+                },
+                { 
+                    label: 'Cumulative Income Tax', 
+                    category: 'Financials', 
+                    value: (data) => {
+                        const [year] = period.split('-');
+                        const yearData = data.filter(p => p.period.includes(year) && p.employeeId === selectedEmployeeId);
+                        return yearData.reduce((sum, p) => sum + parseFloat(p.tax || 0), 0).toFixed(2);
+                    } 
+                },
+                { 
+                    label: 'Total PAYE (This Period)', 
+                    category: 'Financials', 
+                    value: (data) => {
+                        const current = data.find(p => p.period === formatPeriodForApi(period) && p.employeeId === selectedEmployeeId);
+                        return parseFloat(current?.paye || 0).toFixed(2);
+                    }
+                },
+                { label: 'Employer TRN', category: 'Entity', value: () => company?.trn || 'NOT_FOUND' },
+                { 
+                    label: 'Employee TRN', 
+                    category: 'Entity', 
+                    value: () => {
+                        const emp = employees.find(e => e.id === selectedEmployeeId);
+                        return emp?.trn || 'NOT_FOUND';
+                    }
+                },
+                { 
+                    label: 'NIS Number', 
+                    category: 'Entity', 
+                    value: () => {
+                        const emp = employees.find(e => e.id === selectedEmployeeId);
+                        return emp?.nisNumber || emp?.nis || 'NOT_FOUND';
+                    }
+                }
             ]
         },
         'NIS-NHT': {
@@ -145,6 +225,21 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
                             className="bg-[#202124] border border-gray-700 text-blue-400 text-[9px] sm:text-[10px] font-black p-1 rounded focus:outline-none"
                         />
                     </div>
+                    {type === 'P45' && (
+                        <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[9px] font-black text-gray-400 uppercase italic">Employee:</span>
+                            <select
+                                value={selectedEmployeeId}
+                                onChange={(e) => setSelectedEmployeeId(e.target.value)}
+                                className="bg-[#202124] border border-gray-700 text-white text-[9px] sm:text-[10px] font-black p-1 rounded focus:outline-none max-w-[150px]"
+                            >
+                                <option value="">--- SELECT ---</option>
+                                {employees.map(emp => (
+                                    <option key={emp.id} value={emp.id}>{emp.firstName} {emp.lastName}</option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                     <button onClick={() => window.print()} className="flex-1 sm:flex-none p-1.5 sm:p-1 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded text-[9px] sm:text-[10px] font-black uppercase shadow-inner transition-all flex items-center justify-center gap-2">
