@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FileText, Download, Printer, LogOut, Loader2, UserMinus } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const P45Report = () => {
     const navigate = useNavigate();
@@ -37,6 +38,24 @@ const P45Report = () => {
         setSelectedEmployee(emp || null);
     };
 
+    const handleExportExcel = () => {
+        if (!selectedEmployee) return;
+        const dataToExport = [{
+            'Employer Name': selectedCompany?.name || 'N/A',
+            'Employer TRN': selectedCompany?.trn || 'N/A',
+            'Family Name': selectedEmployee.lastName,
+            'First Name': selectedEmployee.firstName,
+            'Employee TRN': selectedEmployee.trn || 'N/A',
+            'NIS Number': selectedEmployee.nisNumber || 'N/A',
+            'Terminal Status': selectedEmployee.status,
+            'Leaving Date': new Date().toLocaleDateString()
+        }];
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'P45');
+        XLSX.writeFile(wb, `P45_${selectedEmployee.lastName}.xlsx`);
+    };
+
     return (
         <div className="flex flex-col h-full w-full bg-[#EBE9D8] font-sans text-xs">
             <div className="bg-[#D4D0C8] border-b border-gray-400 px-3 py-2 flex items-center justify-between shadow-sm">
@@ -54,6 +73,9 @@ const P45Report = () => {
                             </button>
                             <button className="px-3 py-1 bg-blue-600 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm border border-blue-700 uppercase tracking-tighter hover:bg-blue-700">
                                 <Download size={12} /> Export P45
+                            </button>
+                            <button onClick={handleExportExcel} className="px-3 py-1 bg-green-700 text-white text-[10px] font-bold flex items-center gap-1 shadow-sm border border-green-800 uppercase tracking-tighter hover:bg-green-800">
+                                <Download size={12} /> Excel
                             </button>
                         </>
                     )}

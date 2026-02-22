@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Printer, LogOut, FileText, Download, Loader2 } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const PayrollSummaryReport = ({ individual = false }) => {
     const navigate = useNavigate();
@@ -133,6 +134,23 @@ const PayrollSummaryReport = ({ individual = false }) => {
         link.click();
     };
 
+    const handleExportExcel = () => {
+        if (summaryData.length === 0) {
+            alert("Please generate the report first.");
+            return;
+        }
+        const ws = XLSX.utils.json_to_sheet(
+            summaryData.map(s => ({
+                'Category / Description': s.category,
+                'Count': s.count,
+                'Amount (JMD)': s.category === 'Total Employees' ? '-' : parseFloat(s.amount) || 0
+            }))
+        );
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Payroll Summary');
+        XLSX.writeFile(wb, `${selectedCompany.name || 'Company'}_Payroll_Summary_${filters.payPeriod}.xlsx`);
+    };
+
     const handlePrint = () => {
         window.print();
     };
@@ -148,7 +166,10 @@ const PayrollSummaryReport = ({ individual = false }) => {
                     <button onClick={handleExport} className="px-3 py-1 bg-blue-600 text-white text-[10px] font-bold flex items-center gap-1 hover:bg-blue-700 shadow-sm">
                         <Download size={12} /> Export CSV
                     </button>
-                    <button onClick={handlePrint} className="px-3 py-1 bg-green-600 text-white text-[10px] font-bold flex items-center gap-1 hover:bg-green-700 shadow-sm">
+                    <button onClick={handleExportExcel} className="px-3 py-1 bg-green-700 text-white text-[10px] font-bold flex items-center gap-1 hover:bg-green-800 shadow-sm">
+                        <Download size={12} /> Export Excel
+                    </button>
+                    <button onClick={handlePrint} className="px-3 py-1 bg-gray-600 text-white text-[10px] font-bold flex items-center gap-1 hover:bg-gray-700 shadow-sm">
                         <Printer size={12} /> Print PDF
                     </button>
                 </div>

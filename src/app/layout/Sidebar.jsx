@@ -71,8 +71,8 @@ const Sidebar = ({ userRole, onClose }) => {
             <div className="h-14 flex items-center justify-between px-6 bg-[#1A1A1A] text-white shrink-0 border-b border-[#333333]">
                 <div className="flex items-center gap-3">
                     <div className="flex flex-col">
-                        <span className="font-bold tracking-widest text-[11px] leading-tight uppercase">HRM·Terminal</span>
-                        <span className="text-[7px] uppercase tracking-[0.3em] opacity-40 font-black">Secure Execution Environment</span>
+                        <span className="font-bold tracking-widest text-[11px] leading-tight uppercase">Island HR Solutions</span>
+                        <span className="text-[7px] uppercase tracking-[0.3em] opacity-40 font-black">HRM System</span>
                     </div>
                 </div>
                 <button onClick={onClose} className="md:hidden p-1 hover:bg-white/10 rounded-full transition-colors"><X size={16} /></button>

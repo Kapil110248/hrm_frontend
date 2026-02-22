@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Printer, LogOut, FileText, Download, Loader2 } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const TurnoverReport = () => {
     const navigate = useNavigate();
@@ -11,7 +12,7 @@ const TurnoverReport = () => {
         department: '',
         reason: ''
     });
-    
+
     const [loading, setLoading] = useState(false);
     const [turnoverData, setTurnoverData] = useState([]);
     const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
@@ -30,11 +31,11 @@ const TurnoverReport = () => {
     useEffect(() => {
         const fetchTurnoverData = async () => {
             if (!selectedCompany.id) return;
-            
+
             setLoading(true);
             try {
                 // Fetch all redundancies (exits)
-                const res = await api.fetchRedundancies({ 
+                const res = await api.fetchRedundancies({
                     companyId: selectedCompany.id,
                     status: 'COMPLETED' // Only completed exits
                 });
@@ -44,11 +45,11 @@ const TurnoverReport = () => {
                     const mapped = res.data.map(r => {
                         const exitDate = new Date(r.effectiveDate);
                         const joinDate = r.employee?.joinDate ? new Date(r.employee.joinDate) : null;
-                        
+
                         let tenure = 'N/A';
                         if (joinDate && exitDate) {
                             const diffTime = Math.abs(exitDate - joinDate);
-                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
+                            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                             const years = (diffDays / 365.25).toFixed(1);
                             tenure = `${years} years`;
                         }
@@ -65,7 +66,7 @@ const TurnoverReport = () => {
                             rawExitDate: exitDate
                         };
                     });
-                    
+
                     setTurnoverData(mapped);
                 }
             } catch (err) {
@@ -76,42 +77,35 @@ const TurnoverReport = () => {
         };
 
         fetchTurnoverData();
-    }, [selectedCompany.id, filters.dateFrom, filters.dateTo]); 
+    }, [selectedCompany.id, filters.dateFrom, filters.dateTo]);
 
     const filteredData = turnoverData.filter(item => {
         const matchesDept = !filters.department || item.department === filters.department;
         const matchesReason = !filters.reason || item.reason === filters.reason;
-        
-        const itemDate = new Date(item.exitDate); 
+
+        const itemDate = new Date(item.exitDate);
         const fromDate = new Date(filters.dateFrom);
         const toDate = new Date(filters.dateTo);
-        
+
         return matchesDept && matchesReason && item.rawExitDate >= fromDate && item.rawExitDate <= toDate;
     });
 
     const handleExport = () => {
-        const headers = ["Employee ID", "Name", "Department", "Join Date", "Exit Date", "Tenure", "Reason"];
-        const csvContent = [
-            headers.join(","),
-            ...filteredData.map(item => [
-                item.employeeId,
-                `"${item.name}"`,
-                item.department,
-                item.joinDate,
-                item.exitDate,
-                item.tenure,
-                item.reason
-            ].join(","))
-        ].join("\n");
+        if (filteredData.length === 0) return;
+        const dataToExport = filteredData.map(item => ({
+            'Employee ID': item.employeeId,
+            'Name': item.name,
+            'Department': item.department,
+            'Join Date': item.joinDate,
+            'Exit Date': item.exitDate,
+            'Tenure': item.tenure,
+            'Reason': item.reason
+        }));
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `turnover_report_${filters.dateFrom}_to_${filters.dateTo}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Turnover');
+        XLSX.writeFile(wb, `Turnover_Report_${filters.dateFrom}_to_${filters.dateTo}.xlsx`);
     };
 
     const handlePrint = () => {
@@ -136,7 +130,7 @@ const TurnoverReport = () => {
                         className="px-4 py-1.5 bg-white border border-gray-400 text-blue-800 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 active:translate-y-0.5 transition-all shadow-sm flex items-center gap-2"
                     >
                         <Download size={14} />
-                        Export CSV
+                        Export Excel
                     </button>
                     <button
                         onClick={handlePrint}

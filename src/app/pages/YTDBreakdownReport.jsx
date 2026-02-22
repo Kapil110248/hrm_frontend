@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Printer, LogOut, FileText, Download, Loader2, Search } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const YTDBreakdownReport = () => {
     const navigate = useNavigate();
@@ -42,11 +43,11 @@ const YTDBreakdownReport = () => {
         try {
             // Fetch all payrolls for the employee
             const res = await api.fetchPayrolls({ employeeId: selectedEmployee.id });
-            
+
             if (res.success && res.data) {
                 // Filter by selected year
                 const yearRecords = res.data.filter(p => p.period.includes(filters.year));
-                
+
                 // Map to report format
                 const formatted = yearRecords.map(p => ({
                     period: p.period,
@@ -119,10 +120,29 @@ const YTDBreakdownReport = () => {
         document.body.removeChild(link);
     };
 
+    const handleExportExcel = () => {
+        if (reportData.length === 0) return;
+        const dataToExport = reportData.map(item => ({
+            'Period': item.period,
+            'Gross Pay (JMD)': item.gross,
+            'NIS (JMD)': item.nis,
+            'NHT (JMD)': item.nht,
+            'PAYE (JMD)': item.paye,
+            'Ed Tax (JMD)': item.edTax,
+            'Net Pay (JMD)': item.net
+        }));
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'YTD Breakdown');
+        let filename = `ytd_${filters.year}`;
+        if (selectedEmployee) filename += `_${selectedEmployee.lastName}`;
+        XLSX.writeFile(wb, `${filename}.xlsx`);
+    };
+
     const formatCurrency = (val) => new Intl.NumberFormat('en-JM', { style: 'currency', currency: 'JMD' }).format(val);
 
-    const filteredEmployees = employees.filter(emp => 
-        emp.firstName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    const filteredEmployees = employees.filter(emp =>
+        emp.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         emp.employeeId.toLowerCase().includes(searchTerm.toLowerCase())
     );
@@ -148,6 +168,13 @@ const YTDBreakdownReport = () => {
                         Export
                     </button>
                     <button
+                        onClick={handleExportExcel}
+                        className="px-4 py-1.5 bg-green-700 text-white text-[10px] font-black uppercase tracking-widest hover:bg-green-800 active:translate-y-0.5 transition-all shadow-sm flex items-center gap-2"
+                    >
+                        <Download size={14} />
+                        Excel
+                    </button>
+                    <button
                         onClick={() => window.print()}
                         className="px-4 py-1.5 bg-white border border-gray-400 text-green-700 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 active:translate-y-0.5 transition-all shadow-sm flex items-center gap-2"
                     >
@@ -167,9 +194,9 @@ const YTDBreakdownReport = () => {
                                 <label className="text-gray-500 font-black text-[9px] uppercase">Select Employee</label>
                                 <div className="relative">
                                     <Search className="absolute left-2 top-2 text-gray-300" size={12} />
-                                    <input 
-                                        type="text" 
-                                        placeholder="Search ID/Name..." 
+                                    <input
+                                        type="text"
+                                        placeholder="Search ID/Name..."
                                         className="w-full pl-7 p-2 border border-blue-200 bg-blue-50 font-bold outline-none uppercase text-[10px]"
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -177,8 +204,8 @@ const YTDBreakdownReport = () => {
                                     {searchTerm && (
                                         <div className="absolute top-full left-0 w-full bg-white border border-gray-200 shadow-lg max-h-48 overflow-y-auto z-10">
                                             {filteredEmployees.map(emp => (
-                                                <div 
-                                                    key={emp.id} 
+                                                <div
+                                                    key={emp.id}
                                                     onClick={() => handleEmployeeSelect(emp)}
                                                     className="p-2 hover:bg-blue-100 cursor-pointer border-b border-gray-50"
                                                 >
@@ -206,7 +233,7 @@ const YTDBreakdownReport = () => {
                                 />
                             </div>
 
-                            <button 
+                            <button
                                 onClick={generateReport}
                                 className="bg-blue-900 text-white font-black uppercase text-[10px] py-2 hover:bg-blue-800"
                             >

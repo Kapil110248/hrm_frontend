@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Eye, Printer, LogOut, FileText } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const PayrollRegister = () => {
     const navigate = useNavigate();
@@ -234,27 +235,22 @@ const PayrollRegister = () => {
                     return;
                 }
 
-                const csvHeader = "Payroll Register Export\n" +
-                    "Period," + filterOptions.payPeriod + "\n" +
-                    "Year," + filterOptions.ofYear + "\n" +
-                    "Sequence," + orderOptions.primaryOrder + " / " + orderOptions.secondaryOrder + "\n" +
-                    "Employee ID,Name,Department,Location,Gross Salary,Deductions,Tax,Net Pay,Status\n";
+                const dataToExport = filteredData.map(p => ({
+                    'Employee ID': p.employee?.employeeId || '',
+                    'Name': `${p.employee?.firstName || ''} ${p.employee?.lastName || ''}`.trim(),
+                    'Department': p.employee?.department?.name || p.employee?.department || '',
+                    'Location': p.employee?.city || p.employee?.parish || p.employee?.branch || '',
+                    'Gross Salary': p.grossSalary,
+                    'Deductions': p.deductions,
+                    'Tax': p.tax,
+                    'Net Pay': p.netSalary,
+                    'Status': p.status
+                }));
 
-                const csvRows = filteredData.map(p => {
-                    const name = `"${p.employee?.firstName} ${p.employee?.lastName}"`;
-                    const dept = `"${p.employee?.department?.name || p.employee?.department || ''}"`;
-                    const branch = `"${p.employee?.city || p.employee?.parish || p.employee?.branch || ''}"`;
-                    return `${p.employee?.employeeId || ''},${name},${dept},${branch},${p.grossSalary},${p.deductions},${p.tax},${p.netSalary},${p.status}`;
-                }).join("\n");
-
-                const csvContent = csvHeader + csvRows;
-
-                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.setAttribute("href", url);
-                link.setAttribute("download", `Payroll_Register_${periodParam}.csv`);
-                link.click();
+                const ws = XLSX.utils.json_to_sheet(dataToExport);
+                const wb = XLSX.utils.book_new();
+                XLSX.utils.book_append_sheet(wb, ws, 'Register');
+                XLSX.writeFile(wb, `Payroll_Register_${periodParam}.xlsx`);
 
                 alert(`SUCCESS: Export complete. ${filteredData.length} records processed.`);
             } else {
@@ -496,7 +492,7 @@ const PayrollRegister = () => {
                             className="flex-1 xl:flex-none flex flex-col items-center justify-center p-4 border border-gray-400 border-b-4 border-r-4 border-gray-600 bg-white text-gray-800 hover:bg-gray-800 hover:text-white transition-all shadow-lg active:translate-y-1 active:border-b-0 active:border-r-0 group rounded-sm"
                         >
                             <Printer size={28} className="text-gray-700 group-hover:text-white mb-2 transition-transform group-hover:scale-110" />
-                            <span className="font-black uppercase tracking-[0.1em] text-[10px]">Excel / CSV</span>
+                            <span className="font-black uppercase tracking-[0.1em] text-[10px]">Excel Option</span>
                         </button>
 
                         <div className="hidden xl:block xl:flex-1"></div>

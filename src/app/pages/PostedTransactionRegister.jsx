@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Download, FileText, Search, RotateCcw, Loader2, X, CheckCircle, AlertCircle, AlertTriangle } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const Toast = ({ message, type, onClose }) => {
     useEffect(() => {
@@ -180,21 +181,22 @@ const PostedTransactionRegister = () => {
             showToast("No records to export.", "info");
             return;
         }
-        const csvString = [
-            ["TX ID", "DATE", "EMPLOYEE", "CATEGORY", "AMOUNT", "STATUS", "POSTED BY"],
-            ...filteredTransactions.map(r => [r.txId, r.date, r.name, r.type, r.amount, r.status, r.postedBy])
-        ].map(e => e.join(",")).join("\n");
 
-        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `Posted_Register_${filters.period}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        showToast("CSV Export generated successfully.", "success");
+        const dataToExport = filteredTransactions.map(r => ({
+            'TX ID': r.txId,
+            'DATE': r.date,
+            'EMPLOYEE': r.name,
+            'CATEGORY': r.type,
+            'AMOUNT': r.amount,
+            'STATUS': r.status,
+            'POSTED BY': r.postedBy
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Posted Transactions');
+        XLSX.writeFile(wb, `Posted_Register_${filters.period}.xlsx`);
+        showToast("Excel Export generated successfully.", "success");
     };
 
     const filteredTransactions = transactions.filter(t => {
@@ -389,7 +391,7 @@ const PostedTransactionRegister = () => {
                     onClick={handleExport}
                     className="flex items-center gap-2 px-8 py-3 bg-[#316AC5] text-white border-2 border-white border-r-[#000080] border-b-[#000080] border-l-white border-t-white shadow-xl active:translate-y-1 active:shadow-inner active:border-b-0 active:border-r-0 text-[11px] font-black italic hover:bg-blue-600 transition-all uppercase tracking-widest"
                 >
-                    <Download size={14} /> Commit to CSV
+                    <Download size={14} /> Export to Excel
                 </button>
             </div>
         </div>

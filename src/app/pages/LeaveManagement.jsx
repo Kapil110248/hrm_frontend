@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save, LogOut, Plus, Edit, RefreshCw, X, Search, Folder, Calendar } from 'lucide-react';
+import { Save, LogOut, Plus, Edit, RefreshCw, X, Search, Folder, Calendar, TrendingUp } from 'lucide-react';
 import { api } from '../../services/api';
 
 const LeaveManagement = () => {
@@ -27,6 +27,7 @@ const LeaveManagement = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [leaveRecords, setLeaveRecords] = useState([]);
     const [employees, setEmployees] = useState([]);
+    const [leaveBalances, setLeaveBalances] = useState(null);
 
     const fetchLeaves = async () => {
         setIsLoading(true);
@@ -80,6 +81,12 @@ const LeaveManagement = () => {
                 const selectedEmployee = employees.find(e => e.employeeId === value);
                 if (selectedEmployee) {
                     updated.employeeName = `${selectedEmployee.firstName} ${selectedEmployee.lastName}`;
+                    // Fetch leave balances for the selected employee
+                    api.fetchLeaveBalances(selectedEmployee.id)
+                        .then(res => { if (res.success) setLeaveBalances(res.data); })
+                        .catch(() => setLeaveBalances(null));
+                } else {
+                    setLeaveBalances(null);
                 }
             }
 
@@ -269,6 +276,21 @@ const LeaveManagement = () => {
                                         placeholder="Full Name..."
                                     />
                                 </div>
+
+                                {/* Leave Balance Info Card — read-only, accrual display */}
+                                {leaveBalances && (
+                                    <div className="bg-blue-50 border border-blue-200 p-3 flex gap-4">
+                                        <div className="flex-1 text-center">
+                                            <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Vacation Balance</p>
+                                            <p className="text-lg font-black text-blue-700">{leaveBalances.vacationBalance}<span className="text-[9px] ml-1 font-bold text-blue-400">hrs</span></p>
+                                        </div>
+                                        <div className="w-px bg-blue-200"></div>
+                                        <div className="flex-1 text-center">
+                                            <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Sick Balance</p>
+                                            <p className="text-lg font-black text-blue-700">{leaveBalances.sickBalance}<span className="text-[9px] ml-1 font-bold text-blue-400">hrs</span></p>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="grid grid-cols-[80px_1fr] gap-x-2 items-center">
                                     <label className="text-gray-500 font-black text-right uppercase text-[9px] tracking-tighter">Class</label>

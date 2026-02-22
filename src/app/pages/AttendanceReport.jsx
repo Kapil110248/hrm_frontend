@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Printer, LogOut, Loader2 } from 'lucide-react';
+import { Printer, LogOut, Loader2, Download } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const AttendanceReport = () => {
     const navigate = useNavigate();
@@ -36,6 +37,24 @@ const AttendanceReport = () => {
     const formatDate = (date) => {
         if (!date) return '-';
         return new Date(date).toLocaleDateString();
+    };
+
+    const handleExportExcel = () => {
+        if (attendanceData.length === 0) return;
+        const dataToExport = attendanceData.map(record => ({
+            'Employee ID': record.employee?.employeeId || '-',
+            'Full Name': `${record.employee?.firstName} ${record.employee?.lastName}`,
+            'Report Date': formatDate(record.date),
+            'Time In': formatTime(record.checkIn),
+            'Time Out': formatTime(record.checkOut),
+            'Total Hrs': record.totalHours || '0',
+            'Status': record.status
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Attendance');
+        XLSX.writeFile(wb, `Attendance_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
     return (
@@ -113,6 +132,13 @@ const AttendanceReport = () => {
 
                 {/* Footer Controls */}
                 <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                    <button
+                        onClick={handleExportExcel}
+                        className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-3 bg-green-700 hover:bg-green-600 text-white font-black text-[11px] uppercase tracking-[0.2em] shadow-lg border-b-4 border-r-4 border-green-900 active:border-b-0 active:border-r-0 active:translate-y-1 transition-all"
+                    >
+                        <Download size={16} />
+                        Export Excel
+                    </button>
                     <button
                         onClick={() => window.print()}
                         className="flex-1 sm:flex-none flex items-center justify-center gap-3 px-8 py-3 bg-[#0055E5] text-white font-black text-[11px] uppercase tracking-[0.2em] shadow-lg border-b-4 border-r-4 border-blue-900 active:border-b-0 active:border-r-0 active:translate-y-1 transition-all"

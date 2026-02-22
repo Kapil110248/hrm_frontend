@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FileText, Download, Filter, Loader2, Calendar } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const NISReport = () => {
     const [payrolls, setPayrolls] = useState([]);
@@ -22,12 +23,12 @@ const NISReport = () => {
         try {
             // Format period as 'MMM-YYYY' (e.g., 'Feb-2026')
             const period = selectedDate.toLocaleString('default', { month: 'short', year: 'numeric' });
-            
-            const res = await api.fetchPayrolls({ 
+
+            const res = await api.fetchPayrolls({
                 companyId: selectedCompany.id,
                 period: period
             });
-            
+
             if (res.success) {
                 setPayrolls(res.data);
             } else {
@@ -47,6 +48,33 @@ const NISReport = () => {
 
     const formatCurrency = (val) => {
         return new Intl.NumberFormat('en-JM', { style: 'currency', currency: 'JMD' }).format(val || 0);
+    };
+
+    const handleExportExcel = () => {
+        if (payrolls.length === 0) return;
+        const dataToExport = payrolls.map(p => ({
+            'NIS Number': p.employee?.nisNumber || 'N/A',
+            'Employee Name': `${p.employee?.firstName} ${p.employee?.lastName}`,
+            'Gross Earnings (JMD)': parseFloat(p.grossSalary || 0),
+            'Employee (3%) (JMD)': parseFloat(p.nis || 0),
+            'Employer (3%) (JMD)': parseFloat(p.nis || 0),
+            'Total (JMD)': parseFloat(p.nis || 0) * 2
+        }));
+
+        // Add aggregates row
+        dataToExport.push({
+            'NIS Number': 'AGGREGATES',
+            'Employee Name': '',
+            'Gross Earnings (JMD)': '',
+            'Employee (3%) (JMD)': totalEmployeeContribution,
+            'Employer (3%) (JMD)': totalEmployerContribution,
+            'Total (JMD)': totalRemittance
+        });
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'NIS Report');
+        XLSX.writeFile(wb, `NIS_Report_${selectedDate.toISOString().slice(0, 7)}.xlsx`);
     };
 
     const totalEmployeeContribution = payrolls.reduce((acc, p) => acc + parseFloat(p.nis || 0), 0);
@@ -70,8 +98,8 @@ const NISReport = () => {
                 <div className="flex gap-2 items-center">
                     <div className="flex items-center gap-1 bg-white border border-gray-400 px-2 py-1 rounded-sm shadow-sm">
                         <Calendar size={12} className="text-gray-500" />
-                        <input 
-                            type="month" 
+                        <input
+                            type="month"
                             className="text-xs font-bold text-gray-700 outline-none bg-transparent uppercase"
                             value={selectedDate.toISOString().slice(0, 7)}
                             onChange={(e) => setSelectedDate(new Date(e.target.value))}
@@ -82,6 +110,9 @@ const NISReport = () => {
                     </button>
                     <button className="flex items-center gap-1 bg-blue-600 text-white px-3 py-1 rounded-sm text-xs font-bold hover:bg-blue-700 shadow-sm border border-blue-800">
                         <Download size={12} /> Export
+                    </button>
+                    <button onClick={handleExportExcel} className="flex items-center gap-1 bg-green-700 text-white px-3 py-1 rounded-sm text-xs font-bold hover:bg-green-800 shadow-sm border border-green-900">
+                        <Download size={12} /> Excel
                     </button>
                 </div>
             </div>
