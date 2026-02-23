@@ -115,6 +115,9 @@ export const api = {
     deleteLeave: async (id) => {
         return apiClient.delete(`/leaves/${id}`);
     },
+    fetchLeaveBalances: async (employeeId) => {
+        return apiClient.get(`/leaves/balances/${employeeId}`);
+    },
 
     // Payrolls
     fetchPayrolls: async (params) => {
@@ -344,6 +347,20 @@ export const api = {
     },
     deleteBankAccount: async (id) => {
         return apiClient.delete(`/bank-accounts/${id}`);
+    },
+
+    // Beneficiaries
+    fetchBeneficiaries: async (companyId) => {
+        return apiClient.get(`/beneficiaries?companyId=${companyId}`);
+    },
+    createBeneficiary: async (data) => {
+        return apiClient.post('/beneficiaries', data);
+    },
+    updateBeneficiary: async (id, data) => {
+        return apiClient.put(`/beneficiaries/${id}`, data);
+    },
+    deleteBeneficiary: async (id) => {
+        return apiClient.delete(`/beneficiaries/${id}`);
     },
 
     // File Maintenance & Backups

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Printer, LogOut, FileText, Download, Search, User, Loader2, ShieldCheck, Landmark } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const P24Report = () => {
     const navigate = useNavigate();
@@ -62,6 +63,22 @@ const P24Report = () => {
         return new Intl.NumberFormat('en-JM', { style: 'currency', currency: 'JMD' }).format(val || 0);
     };
 
+    const handleExportExcel = () => {
+        if (!selectedEmployee) return;
+        const dataToExport = [
+            { 'Category': `Total Gross Emoluments (${yearHistory.length} periods)`, 'Amount (JMD)': aggregates.gross },
+            { 'Category': 'NIS Statutory Deduction (3%)', 'Amount (JMD)': -aggregates.nis },
+            { 'Category': 'NHT Statutory Deduction (2%)', 'Amount (JMD)': -aggregates.nht },
+            { 'Category': 'Income Tax Withheld (PAYE)', 'Amount (JMD)': -aggregates.tax },
+            { 'Category': 'Education Tax Withheld (2.25%)', 'Amount (JMD)': -aggregates.edTax },
+            { 'Category': 'Net Emoluments Disbursed', 'Amount (JMD)': aggregates.net }
+        ];
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'P24');
+        XLSX.writeFile(wb, `P24_${selectedYear}_${selectedEmployee.lastName}.xlsx`);
+    };
+
     return (
         <div className="flex flex-col h-full w-full bg-[#EBE9D8] font-sans text-xs relative">
             {loading && (
@@ -74,6 +91,9 @@ const P24Report = () => {
                 <div className="flex gap-2">
                     <button className="px-3 py-1 bg-blue-600 text-white text-[10px] font-bold flex items-center gap-1">
                         <Download size={12} /> Export PDF
+                    </button>
+                    <button onClick={handleExportExcel} className="px-3 py-1 bg-green-700 text-white text-[10px] font-bold flex items-center gap-1">
+                        <Download size={12} /> Excel
                     </button>
                     <button onClick={() => window.print()} className="px-3 py-1 bg-green-600 text-white text-[10px] font-bold flex items-center gap-1">
                         <Printer size={12} /> Print

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Printer, LogOut, FileText, Download, Loader2 } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const RetentionReport = () => {
     const navigate = useNavigate();
@@ -10,7 +11,7 @@ const RetentionReport = () => {
         year: new Date().getFullYear().toString(),
         tenureRange: 'All'
     });
-    
+
     const [loading, setLoading] = useState(false);
     const [stats, setStats] = useState([]);
     const [totals, setTotals] = useState({ total: 0, retained: 0, avgTenure: 0 });
@@ -35,7 +36,7 @@ const RetentionReport = () => {
                 // 1. Fetch all employees (Active and Inactive if possible, but api.fetchEmployees might return only active)
                 // We need to know who is currently active.
                 const empRes = await api.fetchEmployees(selectedCompany.id);
-                
+
                 // 2. Fetch all redundancies (Exits) correctly
                 // We use this to reconstruct the population at the start of the year
                 const exitRes = await api.fetchRedundancies({ companyId: selectedCompany.id, status: 'COMPLETED' });
@@ -65,14 +66,14 @@ const RetentionReport = () => {
 
         // 1. Identify "Start Population" (Active on Jan 1st)
         // = (Currently Active joined before Jan 1) + (Exited AFTER Jan 1 but joined BEFORE Jan 1)
-        
+
         // Add Currently Active employees who were present at start of year
         currentEmployees.forEach(emp => {
             const joinDate = emp.joinDate ? new Date(emp.joinDate) : null;
             if (joinDate && joinDate < startOfYear) {
                 const d = getDept(emp.department);
                 if (!deptStats[d]) deptStats[d] = { total: 0, retained: 0, tenureSum: 0, tenureCount: 0 };
-                
+
                 deptStats[d].total += 1; // Was here at start
                 deptStats[d].retained += 1; // Still here (Retained)
 
@@ -94,7 +95,7 @@ const RetentionReport = () => {
                 if (joinDate && joinDate < startOfYear) {
                     const d = getDept(exit.employee?.department);
                     if (!deptStats[d]) deptStats[d] = { total: 0, retained: 0, tenureSum: 0, tenureCount: 0 };
-                    
+
                     deptStats[d].total += 1; // Was here at start
                     // NOT retained
                 }
@@ -121,14 +122,14 @@ const RetentionReport = () => {
         // Calculate Totals
         const totalStart = rows.reduce((sum, r) => sum + r.totalEmployees, 0);
         const totalRetained = rows.reduce((sum, r) => sum + r.retained, 0);
-        
+
         // Weighted average tenure? Or simple average of averages? Better to sum raw data but for now weighted approx
         // Actually we can sum raw from deptStats
         let globalTenureSum = 0;
         let globalTenureCount = 0;
         Object.values(deptStats).forEach(s => {
-             globalTenureSum += s.tenureSum;
-             globalTenureCount += s.tenureCount;
+            globalTenureSum += s.tenureSum;
+            globalTenureCount += s.tenureCount;
         });
         const globalAvgTenure = globalTenureCount > 0 ? (globalTenureSum / globalTenureCount / (1000 * 60 * 60 * 24 * 365.25)).toFixed(1) : '0.0';
 
@@ -147,26 +148,27 @@ const RetentionReport = () => {
     });
 
     const handleExport = () => {
-        const headers = ["Department", "Start Count", "Retained", "Retention Rate", "Avg Tenure"];
-        const csvContent = [
-            headers.join(","),
-            ...filteredData.map(item => [
-                item.department,
-                item.totalEmployees,
-                item.retained,
-                item.retentionRate,
-                item.avgTenure
-            ].join(","))
-        ].join("\n");
+        if (filteredData.length === 0) return;
+        const dataToExport = filteredData.map(item => ({
+            'Department': item.department,
+            'Start Count': item.totalEmployees,
+            'Retained': item.retained,
+            'Retention Rate': item.retentionRate,
+            'Avg Tenure': item.avgTenure
+        }));
 
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `retention_report_${filters.year}.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        dataToExport.push({
+            'Department': 'TOTAL AGGREGATE',
+            'Start Count': totals.total,
+            'Retained': totals.retained,
+            'Retention Rate': totals.retentionRate,
+            'Avg Tenure': totals.avgTenure
+        });
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Retention Report');
+        XLSX.writeFile(wb, `Retention_Report_${filters.year}.xlsx`);
     };
 
     const handlePrint = () => {
@@ -191,7 +193,7 @@ const RetentionReport = () => {
                         className="px-4 py-1.5 bg-white border border-gray-400 text-blue-800 text-[10px] font-black uppercase tracking-widest hover:bg-gray-50 active:translate-y-0.5 transition-all shadow-sm flex items-center gap-2"
                     >
                         <Download size={14} />
-                        Export
+                        Export Excel
                     </button>
                     <button
                         onClick={handlePrint}

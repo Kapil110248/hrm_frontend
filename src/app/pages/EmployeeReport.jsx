@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Printer, LogOut, FileText, Loader2 } from 'lucide-react';
+import { Printer, LogOut, FileText, Loader2, Download } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const EmployeeReport = () => {
     const navigate = useNavigate();
@@ -27,6 +28,22 @@ const EmployeeReport = () => {
 
         fetchEmployees();
     }, [selectedCompany.id]);
+
+    const handleExportExcel = () => {
+        if (employees.length === 0) return;
+        const dataToExport = employees.map(emp => ({
+            'Employee ID': emp.employeeId,
+            'Name': `${emp.firstName} ${emp.lastName}`,
+            'Department': emp.department?.name || '-',
+            'Designation': emp.designation,
+            'Status': emp.status
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Employee Report');
+        XLSX.writeFile(wb, `Employee_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
+    };
 
     return (
         <div className="flex flex-col h-full w-full bg-[#EBE9D8] font-sans text-xs">
@@ -76,6 +93,13 @@ const EmployeeReport = () => {
                     </table>
                 </div>
                 <div className="flex gap-2 mt-4">
+                    <button
+                        onClick={handleExportExcel}
+                        className="flex items-center gap-2 px-6 py-2 bg-green-700 border border-green-800 text-white font-bold uppercase tracking-widest text-[10px] shadow-sm active:translate-y-0.5"
+                    >
+                        <Download size={16} />
+                        Export
+                    </button>
                     <button
                         onClick={() => window.print()}
                         className="flex items-center gap-2 px-6 py-2 bg-[#316AC5] border border-[#26539a] text-white font-bold uppercase tracking-widest text-[10px] shadow-sm active:translate-y-0.5"

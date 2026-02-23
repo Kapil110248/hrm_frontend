@@ -4,8 +4,10 @@ import { api } from '../../services/api';
 import {
     Save, LogOut, Plus, Trash2, RefreshCw, Search,
     User, DollarSign, ShieldCheck, Phone, MapPin, Briefcase,
-    CreditCard, FileText, Mail, Clock, Calendar, History
+    CreditCard, FileText, Mail, Clock, Calendar, History,
+    Download, FileSpreadsheet
 } from 'lucide-react';
+import { exportToExcel, exportToPDF } from '../../utils/exportUtils';
 
 const EmployeeManagement = () => {
     const navigate = useNavigate();
@@ -173,6 +175,32 @@ const EmployeeManagement = () => {
         return new Intl.NumberFormat('en-JM', { minimumFractionDigits: 2 }).format(val || 0);
     };
 
+    const handleExportExcel = () => {
+        const dataToExport = employees.map(emp => ({
+            'Employee ID': emp.employeeId,
+            'First Name': emp.firstName,
+            'Last Name': emp.lastName,
+            'Email': emp.email,
+            'Phone': emp.phone,
+            'Designation': emp.designation,
+            'Department': departments.find(d => d.id === emp.departmentId)?.name || 'N/A',
+            'Join Date': emp.joinDate ? new Date(emp.joinDate).toLocaleDateString() : 'N/A',
+            'Status': emp.status
+        }));
+        exportToExcel(dataToExport, `Employee_Directory_${new Date().toISOString().split('T')[0]}`);
+    };
+
+    const handleExportPDF = () => {
+        const columns = [
+            { header: 'ID', accessor: 'employeeId' },
+            { header: 'First Name', accessor: 'firstName' },
+            { header: 'Last Name', accessor: 'lastName' },
+            { header: 'Designation', accessor: 'designation' },
+            { header: 'Status', accessor: 'status' }
+        ];
+        exportToPDF(columns, employees, `Employee_Directory_${new Date().toISOString().split('T')[0]}`, 'Personnel Directory Master List');
+    };
+
     return (
         <div className="flex flex-col h-full w-full bg-[#F5F5F7] font-sans text-gray-900">
             {/* Action Bar */}
@@ -182,6 +210,22 @@ const EmployeeManagement = () => {
                     <p className="text-gray-400 text-[9px] uppercase font-bold tracking-widest">Master Employee Files</p>
                 </div>
                 <div className="flex items-center gap-2">
+                    <div className="flex items-center bg-gray-100 p-1 rounded-md mr-2 border border-gray-200">
+                        <button
+                            onClick={handleExportExcel}
+                            title="Export to Excel"
+                            className="p-2 text-green-700 hover:bg-white hover:shadow-sm rounded transition-all group border border-transparent hover:border-green-200"
+                        >
+                            <FileSpreadsheet size={16} />
+                        </button>
+                        <button
+                            onClick={handleExportPDF}
+                            title="Export to PDF"
+                            className="p-2 text-red-700 hover:bg-white hover:shadow-sm rounded transition-all group border border-transparent hover:border-red-200"
+                        >
+                            <FileText size={16} />
+                        </button>
+                    </div>
                     <button onClick={handleNew} className="px-4 py-2 bg-gray-800 text-white rounded text-[10px] font-bold uppercase tracking-widest hover:bg-gray-900 transition-colors">
                         Add Record
                     </button>
@@ -336,10 +380,62 @@ const EmployeeManagement = () => {
 
                             {activeTab === 'Statutory' && (
                                 <div className="grid grid-cols-2 gap-x-12 gap-y-6">
-                                    <SectionTitle title="Government IDs" />
-                                    <InputField label="TRN" value={formData.trn} onChange={(v) => handleInputChange('trn', v)} disabled={!isEditing} placeholder="XXX-XXX-XXX" />
-                                    <InputField label="NIS #" value={formData.nisNumber} onChange={(v) => handleInputChange('nisNumber', v)} disabled={!isEditing} />
-                                    <InputField label="NHT #" value={formData.nhtNumber} onChange={(v) => handleInputChange('nhtNumber', v)} disabled={!isEditing} />
+                                    <SectionTitle title="Government Identifiers" />
+                                    <div className="space-y-4">
+                                        <div className="bg-blue-50/50 p-4 border border-blue-100 rounded-lg">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="w-1.5 h-6 bg-blue-600 rounded-full"></div>
+                                                <label className="block text-[11px] font-black text-blue-900 uppercase tracking-[0.2em]">TRN (Taxpayer Registration Number)</label>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={formData.trn}
+                                                onChange={(e) => handleInputChange('trn', e.target.value)}
+                                                disabled={!isEditing}
+                                                placeholder="XXX-XXX-XXX"
+                                                className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm font-bold focus:ring-2 focus:ring-blue-500 outline-none disabled:bg-gray-100/50 disabled:text-gray-500 transition-all font-mono"
+                                            />
+                                            <p className="mt-2 text-[9px] text-gray-500 font-bold uppercase tracking-wider leading-relaxed">
+                                                Essential for payroll tax compliance. Issued by <span className="text-blue-700">Tax Administration Jamaica (TAJ)</span>.
+                                            </p>
+                                        </div>
+
+                                        <div className="bg-green-50/50 p-4 border border-green-100 rounded-lg">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="w-1.5 h-6 bg-green-600 rounded-full"></div>
+                                                <label className="block text-[11px] font-black text-green-900 uppercase tracking-[0.2em]">NIS Number (Social Security)</label>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={formData.nisNumber}
+                                                onChange={(e) => handleInputChange('nisNumber', e.target.value)}
+                                                disabled={!isEditing}
+                                                placeholder="X-XX-XX-XX-X"
+                                                className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm font-bold focus:ring-2 focus:ring-green-500 outline-none disabled:bg-gray-100/50 disabled:text-gray-500 transition-all font-mono"
+                                            />
+                                            <p className="mt-2 text-[9px] text-green-700 font-bold uppercase tracking-wider leading-relaxed">
+                                                National Insurance Scheme reference for social security benefits and pension tracking.
+                                            </p>
+                                        </div>
+
+                                        <div className="bg-orange-50/50 p-4 border border-orange-100 rounded-lg">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="w-1.5 h-6 bg-orange-600 rounded-full"></div>
+                                                <label className="block text-[11px] font-black text-orange-900 uppercase tracking-[0.2em]">NHT Number (Housing Trust)</label>
+                                            </div>
+                                            <input
+                                                type="text"
+                                                value={formData.nhtNumber}
+                                                onChange={(e) => handleInputChange('nhtNumber', e.target.value)}
+                                                disabled={!isEditing}
+                                                placeholder="XXXXXXXXX"
+                                                className="w-full p-2.5 border border-gray-300 rounded bg-white text-sm font-bold focus:ring-2 focus:ring-orange-500 outline-none disabled:bg-gray-100/50 disabled:text-gray-500 transition-all font-mono"
+                                            />
+                                            <p className="mt-2 text-[9px] text-orange-700 font-bold uppercase tracking-wider leading-relaxed">
+                                                National Housing Trust identification for housing contribution deductions.
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             )}
 

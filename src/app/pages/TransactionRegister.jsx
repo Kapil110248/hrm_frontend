@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ListFilter, Search, Printer, Download, LogOut, FileText, ChevronDown, Loader2 } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const TransactionRegister = () => {
     const navigate = useNavigate();
@@ -64,20 +65,21 @@ const TransactionRegister = () => {
             (r.employee.toLowerCase().includes(searchTerm.toLowerCase()) || r.txId.toLowerCase().includes(searchTerm.toLowerCase()))
         );
 
-        const csvString = [
-            ["TX ID", "DATE", "EMPLOYEE", "CATEGORY", "AMOUNT", "STATUS"],
-            ...filtered.map(r => [r.txId, r.date, r.employee, r.type, r.amount, r.status])
-        ].map(e => e.join(",")).join("\n");
+        if (filtered.length === 0) return;
 
-        const blob = new Blob([csvString], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `Transaction_Register_${new Date().toISOString().split('T')[0]}.csv`);
-        link.style.visibility = 'hidden';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        const dataToExport = filtered.map(r => ({
+            'TX ID': r.txId,
+            'DATE': r.date,
+            'EMPLOYEE': r.employee,
+            'CATEGORY': r.type,
+            'AMOUNT': r.amount,
+            'STATUS': r.status
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+        XLSX.writeFile(wb, `Transaction_Register_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
     const filteredRecords = records.filter(r => {
@@ -131,7 +133,7 @@ const TransactionRegister = () => {
                             onClick={handleExport}
                             className="p-2 border border-gray-400 bg-[#E0DCCF] hover:bg-white hover:text-green-700 transition-all shadow-sm active:translate-y-0.5"
                         >
-                            <Download size={16} title="Export CSV" />
+                            <Download size={16} title="Export Excel" />
                         </button>
                     </div>
                 </div>
