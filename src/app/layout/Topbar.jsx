@@ -362,7 +362,7 @@ const Topbar = ({ onLogout, onSelectCompany, companyName, isCompanySelected = fa
                 'stat_p24': '/statutory/p24',
                 'stat_p45': '/statutory/p45',
                 'stat_nht': '/statutory/nht',
-                'stat_nis_nht': '/statutory/nis-nht',
+                'stat_nis_nht': '/reports/statutory-summary',
                 'stat_s01': '/statutory/s01',
                 'stat_s02': '/statutory/s02',
                 'stat_pension': '/statutory/pension',

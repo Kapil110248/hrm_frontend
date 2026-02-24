@@ -142,6 +142,13 @@ export const api = {
     finalizeBatch: async (data) => {
         return apiClient.post('/payrolls/finalize', data);
     },
+    fetchStatutorySummary: async (params) => {
+        const query = new URLSearchParams(params).toString();
+        return apiClient.get(`/payrolls/statutory-summary?${query}`);
+    },
+    fetchEmployeeStatutoryDetails: async (employeeId, year) => {
+        return apiClient.get(`/payrolls/statutory-details/${employeeId}?year=${year}`);
+    },
     syncPayrolls: async (data) => {
         return apiClient.post('/payrolls/sync', data);
     },

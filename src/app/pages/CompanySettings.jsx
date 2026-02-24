@@ -174,6 +174,26 @@ const CompanySettings = () => {
     }, [selectedCompany.id]);
 
     const logoInputRef = useRef(null);
+    // Browsers block selecting directories with system files 
+    // And don't reveal full paths. We use a prompt/alert strategy.
+    const handleBrowseFolder = (field) => {
+        let currentPath = formData[field] || '';
+
+        const fullPath = window.prompt(
+            `📁 Set Export Path
+
+Because browsers cannot safely read local system folder paths, please type or paste the FULL Windows folder path below.
+
+For example:
+C:\\Users\\Admin\\Desktop
+C:\\MICROBRIDGE SOFTWARE\\SMARTPA`,
+            currentPath
+        );
+
+        if (fullPath && fullPath.trim()) {
+            handleInputChange(field, fullPath.trim());
+        }
+    };
 
     const handleInputChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
@@ -647,11 +667,21 @@ const CompanySettings = () => {
                                                     <div className="flex flex-col gap-1">
                                                         <label className="text-[9px] font-bold text-gray-600 uppercase">Export Path</label>
                                                         <div className="flex gap-2">
-                                                            <input value={formData.glExportPath} onChange={(e) => handleInputChange('glExportPath', e.target.value)} className="flex-1 p-2 border border-gray-300 rounded text-[10px] font-mono" />
-                                                            <button className="p-2 border border-gray-300 rounded hover:bg-white text-gray-400 hover:text-blue-900 transition-colors">
+                                                            <input
+                                                                value={formData.glExportPath}
+                                                                onChange={(e) => handleInputChange('glExportPath', e.target.value)}
+                                                                className="flex-1 p-2 border-2 border-blue-200 rounded text-[10px] font-mono bg-white focus:border-blue-500 outline-none"
+                                                                placeholder="e.g. C:\Users\Admin\Desktop"
+                                                            />
+                                                            <button
+                                                                title="Browse for folder"
+                                                                onClick={() => handleBrowseFolder('glExportPath')}
+                                                                className="p-2 border border-blue-200 rounded bg-blue-50 hover:bg-blue-100 text-blue-500 transition-colors"
+                                                            >
                                                                 <Folder size={14} />
                                                             </button>
                                                         </div>
+                                                        <p className="text-[8px] text-gray-400 italic">💡 Type the Windows folder path directly in the box above</p>
                                                     </div>
                                                 </div>
                                             </section>
@@ -744,14 +774,24 @@ const CompanySettings = () => {
                                                 </h4>
 
                                                 <div className="space-y-2">
-                                                    <div className="flex flex-col gap-1 p-3 bg-gray-50/50 border border-gray-200 rounded">
-                                                        <label className="text-[9px] font-bold text-gray-600 uppercase">S01 Export Root Path</label>
+                                                    <div className="flex flex-col gap-1 p-3 bg-amber-50/50 border border-amber-200 rounded">
+                                                        <label className="text-[9px] font-bold text-amber-800 uppercase">S01 Export Root Path</label>
                                                         <div className="flex gap-2">
-                                                            <input value={formData.s01ExportPath} onChange={(e) => handleInputChange('s01ExportPath', e.target.value)} className="flex-1 p-2 border border-gray-300 rounded text-[10px] font-bold tabular-nums" />
-                                                            <button className="p-2 border border-gray-300 rounded hover:bg-white text-gray-400 hover:text-blue-900 transition-colors">
+                                                            <input
+                                                                value={formData.s01ExportPath}
+                                                                onChange={(e) => handleInputChange('s01ExportPath', e.target.value)}
+                                                                className="flex-1 p-2 border-2 border-amber-300 rounded text-[10px] font-bold tabular-nums bg-white focus:border-amber-500 outline-none"
+                                                                placeholder="e.g. C:\Users\Admin\Desktop"
+                                                            />
+                                                            <button
+                                                                title="Browse to select folder"
+                                                                onClick={() => handleBrowseFolder('s01ExportPath')}
+                                                                className="p-2 border border-amber-300 rounded bg-amber-100 hover:bg-amber-200 text-amber-700 transition-colors"
+                                                            >
                                                                 <Folder size={14} />
                                                             </button>
                                                         </div>
+                                                        <p className="text-[8px] text-amber-700 font-bold">💡 Type the Windows path directly — e.g. <code className="bg-amber-100 px-1">C:\Users\Admin\Desktop</code></p>
                                                     </div>
                                                 </div>
                                             </section>

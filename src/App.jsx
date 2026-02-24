@@ -55,6 +55,8 @@ function App() {
     setSelectedCompany(null);
     localStorage.removeItem('currentUser');
     localStorage.removeItem('selectedCompany');
+    // Force redirect to root to prevent previous session URL from persisting
+    window.location.href = '/';
   };
 
   return (
