@@ -398,7 +398,8 @@ const EmployeeManagement = () => {
                                                                 setIsLoading(true);
                                                                 const payload = {
                                                                     ...userFormData,
-                                                                    email: formData.email
+                                                                    email: formData.email,
+                                                                    companyId: selectedCompany.id
                                                                 };
                                                                 let res;
                                                                 if (linkedUser) {

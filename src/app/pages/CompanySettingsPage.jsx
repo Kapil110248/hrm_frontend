@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Save as SaveIcon, Edit3, RotateCcw as RevertIcon, LogOut as ExitIcon, Folder } from 'lucide-react';
+import { Save as SaveIcon, Edit3, RotateCcw as RevertIcon, LogOut as ExitIcon, Folder, Upload, Image as ImageIcon } from 'lucide-react';
+import { api } from '../../services/api';
 
 const clone = (v) => (v && typeof v === 'object' ? (Array.isArray(v) ? v.map(clone) : { ...v, ...Object.fromEntries(Object.entries(v).map(([k, x]) => [k, clone(x)])) }) : v);
 
@@ -32,33 +33,38 @@ const CompanySettingsPage = () => {
     const navigate = useNavigate();
     const [activeTab, setActiveTab] = useState('general');
     const [isEditing, setIsEditing] = useState(false);
+    const [logoFile, setLogoFile] = useState(null);
+    const [logoPreview, setLogoPreview] = useState(null);
     const savedRef = useRef(null);
+    const fileInputRef = useRef(null);
+    const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
 
     const [general, setGeneral] = useState({
-        companyNo: '11',
-        name: 'ISLAND HR SOLUTIONS LIMITED',
-        description: 'ISLAND HR SOLUTIONS LIMITED',
-        tradeName: '1799376.00',
-        nisReference: '7741929',
+        companyNo: '',
+        name: '',
+        description: '',
+        tradeName: '',
+        nisReference: '',
         payeReference: '',
-        trn: '002095220',
+        trn: '',
         frequencyDesc: '',
-        addressLine1: 'Bioprist Knowledge Park',
+        addressLine1: '',
         mailingAddress1: '',
-        addressLine2: '4th Floor, 1A Pomento Way',
+        addressLine2: '',
         mailingAddress2: '',
-        phoneNo: '6207645',
+        phoneNo: '',
         emailAddress: '',
-        payCycle: 'Weekly',
-        payDay: 'Friday',
-        currentPeriod: '2',
-        noOfPeriods: '52',
-        currentPE: '09/01/2026',
-        currentNISE: '05/01/2026',
-        year: '2026',
+        payCycle: 'Monthly',
+        payDay: 'Last Day',
+        currentPeriod: '1',
+        noOfPeriods: '12',
+        currentPE: '',
+        currentNISE: '',
+        year: new Date().getFullYear().toString(),
         taxCreditType: 'Annual',
-        annualTaxCr: '1,799,376.00',
-        prorateAnnualCredit: false
+        annualTaxCr: '0.00',
+        prorateAnnualCredit: false,
+        logo: ''
     });
 
     const [preferences, setPreferences] = useState({
@@ -124,47 +130,123 @@ const CompanySettingsPage = () => {
     });
 
     useEffect(() => {
-        const loadSettings = () => {
+        const loadSettings = async () => {
             try {
-                const saved = localStorage.getItem('company_settings_v1');
-                if (saved) {
-                    const parsed = JSON.parse(saved);
-                    savedRef.current = parsed;
-                    setGeneral(parsed.general);
-                    setPreferences(parsed.preferences);
-                    setTaxScheme(parsed.taxScheme);
-                    setTaxRates(parsed.taxRates);
-                    setYtd(parsed.ytd);
-                } else {
-                    savedRef.current = buildSnapshot();
+                if (selectedCompany.id) {
+                    const response = await api.fetchCompanies();
+                    if (response.success) {
+                        const company = response.data.find(c => c.id === selectedCompany.id);
+                        if (company) {
+                            const mappedGeneral = {
+                                ...general,
+                                name: company.name,
+                                companyNo: company.code,
+                                addressLine1: company.address,
+                                phoneNo: company.phone,
+                                emailAddress: company.email,
+                                logo: company.logo,
+                                trn: company.trn || '',
+                                payCycle: company.payFrequency || 'Monthly',
+                                ... (company.settings || {})
+                            };
+                            setGeneral(mappedGeneral);
+                            setLogoPreview(company.logo ? `http://localhost:5000${company.logo}` : null);
+                            
+                            // Load other settings if they exist in localStorage for now, 
+                            // or merge with what we got from API
+                            const saved = localStorage.getItem(`company_settings_${selectedCompany.id}`);
+                            if (saved) {
+                                const parsed = JSON.parse(saved);
+                                setPreferences(parsed.preferences || preferences);
+                                setTaxScheme(parsed.taxScheme || taxScheme);
+                                setTaxRates(parsed.taxRates || taxRates);
+                                setYtd(parsed.ytd || ytd);
+                            }
+                        }
+                    }
                 }
             } catch (e) {
                 console.error("Failed to load settings", e);
-                savedRef.current = buildSnapshot();
             }
         };
 
-        if (savedRef.current === null) {
-            loadSettings();
-        }
-    }, []);
+        loadSettings();
+    }, [selectedCompany.id]);
 
     const updateGeneral = (field, value) => setGeneral(prev => ({ ...prev, [field]: value }));
     const updatePreferences = (field, value) => setPreferences(prev => ({ ...prev, [field]: value }));
     const updateYtd = (field, value) => setYtd(prev => ({ ...prev, [field]: value }));
 
-    const handleSave = () => {
-        const snapshot = buildSnapshot();
-        savedRef.current = snapshot;
-        // Persist to localStorage to ensure data survives reload
+    const handleSave = async () => {
         try {
-            localStorage.setItem('company_settings_v1', JSON.stringify(snapshot));
-            // Also update main app settings if needed
+            if (!selectedCompany.id) {
+                alert('No company selected');
+                return;
+            }
+
+            // 1. Update basic info first
+            const updateResponse = await api.updateCompany(selectedCompany.id, {
+                name: general.name,
+                code: general.companyNo,
+                address: general.addressLine1,
+                phone: general.phoneNo,
+                email: general.emailAddress,
+                payFrequency: general.payCycle,
+                trn: general.trn,
+                settings: {
+                    description: general.description,
+                    tradeName: general.tradeName,
+                    nisReference: general.nisReference,
+                    payeReference: general.payeReference,
+                    frequencyDesc: general.frequencyDesc,
+                    mailingAddress1: general.mailingAddress1,
+                    addressLine2: general.addressLine2,
+                    mailingAddress2: general.mailingAddress2,
+                    currentPeriod: general.currentPeriod,
+                    noOfPeriods: general.noOfPeriods,
+                    currentPE: general.currentPE,
+                    currentNISE: general.currentNISE,
+                    year: general.year,
+                    taxCreditType: general.taxCreditType,
+                    annualTaxCr: general.annualTaxCr,
+                    prorateAnnualCredit: general.prorateAnnualCredit
+                }
+            });
+
+            if (!updateResponse.success) {
+                throw new Error(updateResponse.message || 'Failed to update company info');
+            }
+
+            // 2. Upload logo if changed
+            if (logoFile) {
+                const logoResponse = await api.uploadCompanyLogo(selectedCompany.id, logoFile);
+                if (!logoResponse.success) {
+                    alert('Company info saved, but logo upload failed: ' + logoResponse.message);
+                }
+            }
+
+            // 3. Persist local extensions
+            localStorage.setItem(`company_settings_${selectedCompany.id}`, JSON.stringify(buildSnapshot()));
+            
             alert('Settings saved successfully!');
+            setIsEditing(false);
+            setLogoFile(null);
         } catch (e) {
             console.error('Save failed', e);
+            alert('Error: ' + e.message);
         }
-        setIsEditing(false);
+    };
+
+    const handleLogoChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setLogoFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setLogoPreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
     };
 
     const handleEdit = () => {
@@ -230,6 +312,61 @@ const CompanySettingsPage = () => {
                                     <Field label="PAYE Ref"><Input name="payeReference" list="general" /></Field>
                                     <Field label="TRN"><Input name="trn" list="general" /></Field>
                                     <Field label="Freq Code"><Input name="frequencyDesc" list="general" /></Field>
+                                    
+                                    {/* Company Logo Section */}
+                                    <div className="md:col-span-2 mt-4 pt-4 border-t border-gray-100">
+                                        <div className="flex flex-col sm:grid sm:grid-cols-[140px_1fr] gap-4 items-start">
+                                            <label className="text-[10px] font-bold text-gray-700 uppercase pt-2">Company Logo</label>
+                                            <div className="flex items-center gap-6">
+                                                <div className="relative group">
+                                                    <div className="w-24 h-24 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center bg-gray-50 overflow-hidden transition-all group-hover:border-blue-400">
+                                                        {logoPreview ? (
+                                                            <img src={logoPreview} alt="Company Logo" className="w-full h-full object-contain" />
+                                                        ) : (
+                                                            <ImageIcon className="text-gray-300 size-8" />
+                                                        )}
+                                                    </div>
+                                                    {isEditing ? (
+                                                        <label className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-lg">
+                                                            <Upload className="text-white size-6" />
+                                                            <input 
+                                                                ref={fileInputRef}
+                                                                type="file" 
+                                                                className="hidden" 
+                                                                accept="image/*" 
+                                                                onChange={handleLogoChange} 
+                                                            />
+                                                        </label>
+                                                    ) : (
+                                                        <div className="absolute inset-0 flex items-center justify-center bg-gray-200/20 opacity-0 group-hover:opacity-100 transition-opacity cursor-not-allowed rounded-lg">
+                                                            <span className="text-[8px] font-bold text-gray-500 uppercase px-2 text-center">Click 'Modify Fields' to change</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-col gap-1">
+                                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-tight">Requirement</p>
+                                                    <p className="text-[9px] text-gray-400">Recommended: 200x200px (PNG/JPG)</p>
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (!isEditing) {
+                                                                alert("Please click the 'Modify Fields' button first to enable editing!");
+                                                                return;
+                                                            }
+                                                            fileInputRef.current?.click();
+                                                        }}
+                                                        className={`mt-2 px-3 py-1 text-[10px] font-bold rounded border transition-colors uppercase ${
+                                                            isEditing 
+                                                            ? "bg-blue-50 text-blue-600 border-blue-100 hover:bg-blue-100" 
+                                                            : "bg-gray-50 text-gray-400 border-gray-200 cursor-not-allowed"
+                                                        }`}
+                                                    >
+                                                        Select File
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
                             </section>
                             <section>

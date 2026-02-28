@@ -45,6 +45,13 @@ export const api = {
     updateCompany: async (id, data) => {
         return apiClient.put(`/companies/${id}`, data);
     },
+    uploadCompanyLogo: async (id, file) => {
+        const formData = new FormData();
+        formData.append('logo', file);
+        return apiClient.post(`/companies/${id}/logo`, formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
 
     fetchEmployees: async (companyId) => {
         return apiClient.get(`/employees?companyId=${companyId}`);

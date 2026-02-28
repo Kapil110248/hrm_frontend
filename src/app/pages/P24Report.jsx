@@ -139,6 +139,12 @@ const P24Report = () => {
                                             <span className="text-[8pt] font-black text-gray-400 uppercase tracking-widest block mb-1">Company TRN</span>
                                             <span className="text-[10pt] font-black text-gray-900">{selectedCompany?.trn || '000-000-000'}</span>
                                         </div>
+                                        {selectedCompany?.settings?.nisReference && (
+                                            <div>
+                                                <span className="text-[8pt] font-black text-gray-400 uppercase tracking-widest block mb-1">Company NIS</span>
+                                                <span className="text-[10pt] font-black text-gray-900">{selectedCompany.settings.nisReference}</span>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="space-y-4">
                                         <div>
@@ -165,27 +171,39 @@ const P24Report = () => {
                                             <tbody className="font-bold tabular-nums">
                                                 <tr className="border-b border-gray-100">
                                                     <td className="p-3 uppercase">Total Gross Emoluments ({yearHistory.length} periods)</td>
-                                                    <td className="p-3 text-right">{formatCurrency(aggregates.gross)}</td>
+                                                    <td className="p-3 text-right">
+                                                        <div className="min-w-[120px] inline-block">{formatCurrency(aggregates.gross)}</div>
+                                                    </td>
                                                 </tr>
                                                 <tr className="border-b border-gray-100 text-gray-600 italic">
                                                     <td className="p-3 pl-8 uppercase">NIS Statutory Deduction (3%)</td>
-                                                    <td className="p-3 text-right">({formatCurrency(aggregates.nis)})</td>
+                                                    <td className="p-3 text-right">
+                                                        <div className="min-w-[120px] inline-block">({formatCurrency(aggregates.nis)})</div>
+                                                    </td>
                                                 </tr>
                                                 <tr className="border-b border-gray-100 text-gray-600 italic">
                                                     <td className="p-3 pl-8 uppercase">NHT Statutory Deduction (2%)</td>
-                                                    <td className="p-3 text-right">({formatCurrency(aggregates.nht)})</td>
+                                                    <td className="p-3 text-right">
+                                                        <div className="min-w-[120px] inline-block">({formatCurrency(aggregates.nht)})</div>
+                                                    </td>
                                                 </tr>
                                                 <tr className="border-b border-gray-100 text-red-700">
                                                     <td className="p-3 uppercase">Income Tax Withheld (PAYE)</td>
-                                                    <td className="p-3 text-right">({formatCurrency(aggregates.tax)})</td>
+                                                    <td className="p-3 text-right">
+                                                        <div className="min-w-[120px] inline-block">({formatCurrency(aggregates.tax)})</div>
+                                                    </td>
                                                 </tr>
                                                 <tr className="border-b border-gray-100 text-red-700">
                                                     <td className="p-3 uppercase">Education Tax Withheld (2.25%)</td>
-                                                    <td className="p-3 text-right">({formatCurrency(aggregates.edTax)})</td>
+                                                    <td className="p-3 text-right">
+                                                        <div className="min-w-[120px] inline-block">({formatCurrency(aggregates.edTax)})</div>
+                                                    </td>
                                                 </tr>
                                                 <tr className="bg-green-50 text-green-900 font-black">
                                                     <td className="p-3 uppercase">Net Emoluments Disbursed</td>
-                                                    <td className="p-3 text-right">{formatCurrency(aggregates.net)}</td>
+                                                    <td className="p-3 text-right underline decoration-double decoration-green-900/30">
+                                                        <div className="min-w-[120px] inline-block">{formatCurrency(aggregates.net)}</div>
+                                                    </td>
                                                 </tr>
                                             </tbody>
                                         </table>

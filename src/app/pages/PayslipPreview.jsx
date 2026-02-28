@@ -11,7 +11,8 @@ const PayslipPreview = () => {
     const [employees, setEmployees] = useState([]);
     const [selectedEmp, setSelectedEmp] = useState(null);
     const [activeUser] = useState(JSON.parse(localStorage.getItem('currentUser') || '{}'));
-    const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
+    const [selectedCompany, setSelectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
+    const [companyInfo, setCompanyInfo] = useState(null);
 
     const fetchData = async () => {
         try {
@@ -47,8 +48,21 @@ const PayslipPreview = () => {
         }
     };
 
+    const fetchCompanyInfo = async () => {
+        try {
+            const response = await api.fetchCompanies();
+            if (response.success) {
+                const company = response.data.find(c => c.id === selectedCompany.id);
+                setCompanyInfo(company);
+            }
+        } catch (err) {
+            console.error("Failed to fetch company info", err);
+        }
+    };
+
     useEffect(() => {
         fetchData();
+        fetchCompanyInfo();
     }, [selectedCompany.id]);
 
     const filteredEmployees = employees.filter(e =>
@@ -136,9 +150,24 @@ const PayslipPreview = () => {
 
                             {/* Header Section */}
                             <div className="flex justify-between items-start border-b-4 border-gray-900 pb-8 mb-10 relative z-10">
-                                <div>
-                                    <h2 className="text-3xl font-black text-gray-900 leading-none tracking-tighter uppercase italic">{activeUser.companyName || 'ISLAND HR SOLUTIONS'}</h2>
-                                    <p className="text-[10px] font-black text-gray-400 mt-2 uppercase tracking-[0.3em] italic">Electronic Remittance Docket :: Station PR-042</p>
+                                <div className="flex items-start gap-6">
+                                    {companyInfo?.logo && (
+                                        <div className="w-16 h-16 bg-gray-50 rounded border border-gray-200 p-1 flex items-center justify-center shrink-0">
+                                            <img src={`http://localhost:5000${companyInfo.logo}`} alt="Logo" className="max-w-full max-h-full object-contain" />
+                                        </div>
+                                    )}
+                                    <div>
+                                        <h2 className="text-3xl font-black text-gray-900 leading-none tracking-tighter uppercase italic">{companyInfo?.name || activeUser.companyName || 'ISLAND HR SOLUTIONS'}</h2>
+                                        <div className="flex gap-4 mt-2">
+                                            {companyInfo?.trn && (
+                                                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest italic">TRN: {companyInfo.trn}</p>
+                                            )}
+                                            {companyInfo?.settings?.nisReference && (
+                                                <p className="text-[9px] font-black text-gray-500 uppercase tracking-widest italic">NIS: {companyInfo.settings.nisReference}</p>
+                                            )}
+                                        </div>
+                                        <p className="text-[10px] font-black text-gray-400 mt-2 uppercase tracking-[0.1em] italic">Electronic Remittance Docket :: Station PR-042</p>
+                                    </div>
                                 </div>
                                 <div className="text-right">
                                     <span className="bg-gray-900 text-white px-4 py-1.5 text-[10px] font-black italic tracking-[0.2em] uppercase rounded-sm shadow-md">CONFIDENTIAL</span>
@@ -170,26 +199,32 @@ const PayslipPreview = () => {
                                         <span className="text-gray-900 self-end">Amount (JMD)</span>
                                     </h4>
                                     <div className="space-y-3 px-2">
-                                        <div className="flex justify-between text-sm font-black text-gray-800 italic uppercase">
+                                        <div className="flex justify-between items-center text-sm font-black text-gray-800 italic uppercase">
                                             <span>Consolidated Gross Compensation</span>
-                                            <span className="tabular-nums">$ {selectedEmp.gross.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            <div className="min-w-[140px] text-right">
+                                                <span className="tabular-nums">$ {selectedEmp.gross.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
-
+                                
                                 <div className="animate-in fade-in slide-in-from-bottom-6 duration-1000 delay-150">
                                     <h4 className="border-b-2 border-gray-900 text-xs font-black uppercase italic mb-4 flex justify-between pb-1 tracking-widest">
                                         <span className="bg-gray-900 text-white px-3 py-0.5">02 // Statutory Obligations</span>
                                         <span className="text-gray-900 self-end">Liability (JMD)</span>
                                     </h4>
                                     <div className="space-y-4 px-2">
-                                        <div className="flex justify-between text-xs font-black text-red-700 italic uppercase">
+                                        <div className="flex justify-between items-center text-xs font-black text-red-700 italic uppercase">
                                             <span>Statutory Taxation (PAYE)</span>
-                                            <span className="tabular-nums">({selectedEmp.tax.toLocaleString(undefined, { minimumFractionDigits: 2 })})</span>
+                                            <div className="min-w-[140px] text-right">
+                                                <span className="tabular-nums">({selectedEmp.tax.toLocaleString(undefined, { minimumFractionDigits: 2 })})</span>
+                                            </div>
                                         </div>
-                                        <div className="flex justify-between text-xs font-black text-red-700 italic uppercase">
+                                        <div className="flex justify-between items-center text-xs font-black text-red-700 italic uppercase">
                                             <span>Aggregate Deductions</span>
-                                            <span className="tabular-nums">({selectedEmp.deductions.toLocaleString(undefined, { minimumFractionDigits: 2 })})</span>
+                                            <div className="min-w-[140px] text-right">
+                                                <span className="tabular-nums">({selectedEmp.deductions.toLocaleString(undefined, { minimumFractionDigits: 2 })})</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -203,7 +238,9 @@ const PayslipPreview = () => {
                                         <span className="text-[10px] font-black uppercase tracking-[0.4em] italic mb-1 text-blue-200">Final Net Liquidation</span>
                                         <span className="text-xs font-bold text-blue-300/50 uppercase tracking-widest">Electronic Fund Transfer Approved</span>
                                     </div>
-                                    <span className="text-3xl font-black italic tracking-tighter tabular-nums drop-shadow-md">$ {selectedEmp.net.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                    <div className="min-w-[180px] text-right">
+                                        <span className="text-3xl font-black italic tracking-tighter tabular-nums drop-shadow-md">$ {selectedEmp.net.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                    </div>
                                 </div>
                                 <div className="flex justify-between mt-6 text-[9px] font-black text-gray-400 italic uppercase tracking-tighter">
                                     <p>Authentication Hash: {selectedEmp.id.substring(0, 16)}...</p>

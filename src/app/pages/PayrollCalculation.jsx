@@ -21,6 +21,7 @@ const PayrollCalculation = () => {
     const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
 
     const [staffRecords, setStaffRecords] = useState([]);
+    const [showAuditModal, setShowAuditModal] = useState(false);
 
     const fetchDepartments = async () => {
         if (!selectedCompany.id) return;
@@ -184,9 +185,91 @@ const PayrollCalculation = () => {
     const totalIncomeTax = staffRecords.reduce((sum, s) => sum + parseFloat(s.paye || 0), 0);
 
     return (
-        <div className="flex flex-col h-full w-full bg-[#F5F5F7] font-sans text-xs">
-            {/* Header */}
-            <div className="bg-white border-b border-gray-300 px-3 sm:px-4 py-3 sm:py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-2 no-print">
+        <>
+            {/* Audit Summary Modal */}
+            {showAuditModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-[#1C1C1E] w-full max-w-[320px] rounded-2xl shadow-2xl border border-white/10 overflow-hidden animate-in zoom-in duration-300">
+                        <div className="p-5">
+                            <div className="flex items-start gap-3 mb-4">
+                                <div className="p-1.5 bg-blue-500/20 rounded-lg">
+                                    <FileText className="text-blue-400" size={18} />
+                                </div>
+                                <div>
+                                    <h3 className="text-[13px] font-bold text-white uppercase tracking-tight">Payroll Audit Summary - {period.toUpperCase()}</h3>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1 mb-4">
+                                <div className="flex justify-between items-center text-[11px]">
+                                    <span className="text-gray-400">Scope:</span>
+                                    <span className="text-gray-200 font-medium">{selectedDept}</span>
+                                </div>
+                                <div className="flex justify-between items-center text-[11px]">
+                                    <span className="text-gray-400">Total Population:</span>
+                                    <span className="text-gray-200 font-medium">{staffRecords.length}</span>
+                                </div>
+                            </div>
+
+                            <div className="border-t border-white/10 my-3"></div>
+
+                            <div className="space-y-2.5">
+                                <div className="flex justify-between items-center group">
+                                    <span className="text-[11px] text-gray-300">Gross Payroll:</span>
+                                    <span className="text-[12px] font-bold text-white tabular-nums font-mono border-b border-white/40 pb-0.5">
+                                        ${totalGross.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[11px] text-gray-300">Total Income Tax:</span>
+                                    <span className="text-[12px] font-bold text-white tabular-nums font-mono">
+                                        ${totalIncomeTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[11px] text-gray-300">NIS Contributions:</span>
+                                    <span className="text-[12px] font-bold text-white tabular-nums font-mono">
+                                        ${staffRecords.reduce((sum, s) => sum + parseFloat(s.nis || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[11px] text-gray-300 uppercase tracking-tighter">NHT Contributions:</span>
+                                    <span className="text-[12px] font-bold text-white tabular-nums font-mono">
+                                        ${staffRecords.reduce((sum, s) => sum + parseFloat(s.nht || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[11px] text-gray-300">Education Tax:</span>
+                                    <span className="text-[12px] font-bold text-white tabular-nums font-mono">
+                                        ${staffRecords.reduce((sum, s) => sum + parseFloat(s.edTax || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[11px] text-gray-300">Other Deductions:</span>
+                                    <span className="text-[12px] font-bold text-white tabular-nums font-mono">
+                                        ${totalDeductions.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="border-t border-white/10 mt-4 mb-2"></div>
+
+                            <div className="flex justify-end">
+                                <button 
+                                    onClick={() => setShowAuditModal(false)}
+                                    className="text-blue-500 text-[13px] font-bold hover:text-blue-400 transition-colors py-2 px-1 focus:outline-none"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <div className="flex flex-col h-full w-full bg-[#F5F5F7] font-sans text-xs">
+                {/* Header */}
+                <div className="bg-white border-b border-gray-300 px-3 sm:px-4 py-3 sm:py-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-2 no-print">
                 <div className="flex items-center gap-2 min-w-0 w-full sm:w-auto">
                     <Calculator className="text-gray-600 shrink-0" size={16} />
                     <span className="font-bold text-gray-800 text-xs uppercase tracking-wider border-l-2 border-gray-300 pl-2 leading-tight">
@@ -216,13 +299,7 @@ const PayrollCalculation = () => {
                         { step: 'Step 1: HRM Sync', icon: <RefreshCw size={32} className="text-blue-500" />, btnText: 'Sync HRM Data', desc: 'Refresh employee data & base rates', color: 'gray', action: handleHrmSync, disabled: loading || isCalculating },
                         { step: 'Step 2: Calculate', icon: <Play size={32} className="text-emerald-500" />, btnText: isCalculating ? 'Processing...' : 'Run Master Engine', desc: 'Calculate Statutories & Net Pay', color: 'primary', action: runCalculations, disabled: isCalculating || loading },
                         {
-                            step: 'Step 3: Audit', icon: <FileText size={32} className="text-amber-500" />, btnText: 'Review Summary', desc: 'Check for discrepancies before locking', color: 'gray', action: () => {
-                                const totalNis = staffRecords.reduce((sum, s) => sum + parseFloat(s.nis || 0), 0);
-                                const totalNht = staffRecords.reduce((sum, s) => sum + parseFloat(s.nht || 0), 0);
-                                const totalEdTax = staffRecords.reduce((sum, s) => sum + parseFloat(s.edTax || 0), 0);
-
-                                alert(`📊 PAYROLL AUDIT SUMMARY - ${period.toUpperCase()}\n\nScope: ${selectedDept}\nTotal Population: ${staffRecords.length}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nGross Payroll:        $${totalGross.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nTotal Income Tax:     $${totalIncomeTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nNIS Contributions:    $${totalNis.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nNHT Contributions:    $${totalNht.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nEducation Tax:        $${totalEdTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}\nOther Deductions:     $${totalDeductions.toLocaleString(undefined, { minimumFractionDigits: 2 })}\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\nNET DISBURSEMENT:    $${totalNet.toLocaleString(undefined, { minimumFractionDigits: 2 })}`);
-                            }, disabled: staffRecords.length === 0
+                            step: 'Step 3: Audit', icon: <FileText size={32} className="text-amber-500" />, btnText: 'Review Summary', desc: 'Check for discrepancies before locking', color: 'gray', action: () => setShowAuditModal(true), disabled: staffRecords.length === 0
                         },
                         { step: 'Step 4: Finalize', icon: <CheckCircle2 size={32} className="text-gray-400" />, btnText: 'Finalize Batch', desc: 'Lock period & generate payslips', color: 'gray', action: handleFinalize, disabled: staffRecords.length === 0 || isCalculating }
                     ].map((item, idx) => (
@@ -381,7 +458,8 @@ const PayrollCalculation = () => {
                     table { min-width: 100% !important; border: 1px solid #ccc !important; }
                 }
             `}} />
-        </div>
+            </div>
+        </>
     );
 };
 
