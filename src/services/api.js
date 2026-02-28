@@ -122,6 +122,9 @@ export const api = {
     deleteLeave: async (id) => {
         return apiClient.delete(`/leaves/${id}`);
     },
+    fetchLeaveBalances: async (employeeId) => {
+        return apiClient.get(`/leaves/balances/${employeeId}`);
+    },
 
     // Payrolls
     fetchPayrolls: async (params) => {
@@ -145,6 +148,13 @@ export const api = {
     },
     finalizeBatch: async (data) => {
         return apiClient.post('/payrolls/finalize', data);
+    },
+    fetchStatutorySummary: async (params) => {
+        const query = new URLSearchParams(params).toString();
+        return apiClient.get(`/payrolls/statutory-summary?${query}`);
+    },
+    fetchEmployeeStatutoryDetails: async (employeeId, year) => {
+        return apiClient.get(`/payrolls/statutory-details/${employeeId}?year=${year}`);
     },
     syncPayrolls: async (data) => {
         return apiClient.post('/payrolls/sync', data);
@@ -351,6 +361,20 @@ export const api = {
     },
     deleteBankAccount: async (id) => {
         return apiClient.delete(`/bank-accounts/${id}`);
+    },
+
+    // Beneficiaries
+    fetchBeneficiaries: async (companyId) => {
+        return apiClient.get(`/beneficiaries?companyId=${companyId}`);
+    },
+    createBeneficiary: async (data) => {
+        return apiClient.post('/beneficiaries', data);
+    },
+    updateBeneficiary: async (id, data) => {
+        return apiClient.put(`/beneficiaries/${id}`, data);
+    },
+    deleteBeneficiary: async (id) => {
+        return apiClient.delete(`/beneficiaries/${id}`);
     },
 
     // File Maintenance & Backups

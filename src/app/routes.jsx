@@ -59,6 +59,8 @@ import BankTransferAdvice from './pages/BankTransferAdvice';
 import P24Report from './pages/P24Report';
 import NHTReport from './pages/NHTReport';
 import NISReport from './pages/NISReport';
+import ConsolidatedStatutoryReport from './pages/ConsolidatedStatutoryReport';
+import NHTLetterPage from './pages/NHTLetterPage';
 import AdminDashboard from './pages/dashboards/AdminDashboard';
 import HrDashboard from './pages/dashboards/HrDashboard';
 import FinanceDashboard from './pages/dashboards/FinanceDashboard';
@@ -180,6 +182,8 @@ const AppRoutes = ({ onLogout, currentUser }) => {
                     <Route path="/statutory/p45" element={<JamaicaStatutory type="P45" />} />
                     <Route path="/statutory/nht" element={<NHTReport />} />
                     <Route path="/statutory/nis-nht" element={<JamaicaStatutory type="NIS-NHT" />} />
+                    <Route path="/reports/statutory-summary" element={<ConsolidatedStatutoryReport />} />
+                    <Route path="/reports/nht-letter/:employeeId" element={<NHTLetterPage />} />
                     <Route path="/statutory/s01" element={<JamaicaStatutory type="S01" />} />
                     <Route path="/statutory/s02" element={<JamaicaStatutory type="S02" />} />
                     <Route path="/statutory/pension" element={<JamaicaStatutory type="Pension" />} />

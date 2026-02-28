@@ -5,6 +5,7 @@ import {
     Save, LogOut, ShieldCheck, Landmark, Search, Loader2
 } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const JamaicaStatutory = ({ type = 'S01' }) => {
     const navigate = useNavigate();
@@ -23,7 +24,7 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
         const monthIndex = parseInt(month) - 1;
         return `${monthNames[monthIndex]}-${year}`;
     };
-    
+
     useEffect(() => {
         const fetchInitialData = async () => {
             const companyStr = localStorage.getItem('selectedCompany');
@@ -31,7 +32,7 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
             setCompany(c);
 
             if (!c) return;
-            
+
             // If P45, fetch employees as well
             if (type === 'P45') {
                 try {
@@ -56,13 +57,13 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
                 const params = {
                     companyId: company.id
                 };
-                
+
                 // For P45, we fetch all payrolls for the employee (or company) to calculate YTD
                 // For others, we filter by period in the API
                 if (type !== 'P45') {
                     params.period = formatPeriodForApi(period);
                 }
-                
+
                 if (selectedEmployeeId) {
                     params.employeeId = selectedEmployeeId;
                 }
@@ -86,44 +87,44 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
             title: 'P45 - Employee Termination Certificate',
             formCode: 'F-P45-TAJ',
             fields: [
-                { 
-                    label: 'Cumulative Gross Pay', 
-                    category: 'Financials', 
+                {
+                    label: 'Cumulative Gross Pay',
+                    category: 'Financials',
                     value: (data) => {
                         const [year] = period.split('-');
                         const yearData = data.filter(p => p.period.includes(year) && p.employeeId === selectedEmployeeId);
                         return yearData.reduce((sum, p) => sum + parseFloat(p.grossSalary || 0), 0).toFixed(2);
-                    } 
+                    }
                 },
-                { 
-                    label: 'Cumulative Income Tax', 
-                    category: 'Financials', 
+                {
+                    label: 'Cumulative Income Tax',
+                    category: 'Financials',
                     value: (data) => {
                         const [year] = period.split('-');
                         const yearData = data.filter(p => p.period.includes(year) && p.employeeId === selectedEmployeeId);
                         return yearData.reduce((sum, p) => sum + parseFloat(p.tax || 0), 0).toFixed(2);
-                    } 
+                    }
                 },
-                { 
-                    label: 'Total PAYE (This Period)', 
-                    category: 'Financials', 
+                {
+                    label: 'Total PAYE (This Period)',
+                    category: 'Financials',
                     value: (data) => {
                         const current = data.find(p => p.period === formatPeriodForApi(period) && p.employeeId === selectedEmployeeId);
                         return parseFloat(current?.paye || 0).toFixed(2);
                     }
                 },
                 { label: 'Employer TRN', category: 'Entity', value: () => company?.trn || 'NOT_FOUND' },
-                { 
-                    label: 'Employee TRN', 
-                    category: 'Entity', 
+                {
+                    label: 'Employee TRN',
+                    category: 'Entity',
                     value: () => {
                         const emp = employees.find(e => e.id === selectedEmployeeId);
                         return emp?.trn || 'NOT_FOUND';
                     }
                 },
-                { 
-                    label: 'NIS Number', 
-                    category: 'Entity', 
+                {
+                    label: 'NIS Number',
+                    category: 'Entity',
                     value: () => {
                         const emp = employees.find(e => e.id === selectedEmployeeId);
                         return emp?.nisNumber || emp?.nis || 'NOT_FOUND';
@@ -200,6 +201,18 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
 
     const currentReport = reports[type] || reports['S01'];
 
+    const handleExportExcel = () => {
+        const dataToExport = currentReport.fields.map(f => ({
+            'Category': f.category,
+            'Field': f.label,
+            'Value': f.value ? f.value(payrollData) : '0.00'
+        }));
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, type);
+        XLSX.writeFile(wb, `${type}_Report_${period}.xlsx`);
+    };
+
     return (
         <div className="flex flex-col h-full w-full bg-[#525659] font-sans selection:bg-blue-200 relative overflow-hidden">
             {loading && (
@@ -247,6 +260,9 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
                     </button>
                     <button className="flex-1 sm:flex-none p-1.5 sm:p-1 px-3 sm:px-4 bg-gray-700 hover:bg-gray-600 text-white rounded text-[9px] sm:text-[10px] font-black uppercase border border-gray-600 transition-all flex items-center justify-center gap-2">
                         <Download size={12} /> <span className="sm:inline">Export</span>
+                    </button>
+                    <button onClick={handleExportExcel} className="flex-1 sm:flex-none p-1.5 sm:p-1 px-3 sm:px-4 bg-green-700 hover:bg-green-600 text-white rounded text-[9px] sm:text-[10px] font-black uppercase border border-green-600 transition-all flex items-center justify-center gap-2">
+                        <Download size={12} /> <span className="sm:inline">Excel</span>
                     </button>
                     <div className="h-6 w-px bg-gray-600 mx-1 hidden sm:block"></div>
                     <button onClick={() => navigate(-1)} className="text-gray-400 hover:text-white transition-colors p-1">

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Printer, LogOut, Loader2 } from 'lucide-react';
+import { Printer, LogOut, Loader2, Download } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const SalaryReport = () => {
     const navigate = useNavigate();
@@ -30,6 +31,24 @@ const SalaryReport = () => {
 
     const formatCurrency = (val) => {
         return new Intl.NumberFormat('en-JM', { style: 'currency', currency: 'JMD' }).format(val || 0);
+    };
+
+    const handleExportExcel = () => {
+        if (salaryData.length === 0) return;
+        const dataToExport = salaryData.map(record => ({
+            'Employee ID': record.employee?.employeeId || '-',
+            'Name': `${record.employee?.firstName} ${record.employee?.lastName}`,
+            'Period': record.period,
+            'Gross Salary': record.grossSalary,
+            'Tax / Stat': record.tax,
+            'Other Deduct': record.deductions,
+            'Net Salary': record.netSalary
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Salary Report');
+        XLSX.writeFile(wb, `Salary_Report_${new Date().toISOString().split('T')[0]}.xlsx`);
     };
 
     return (
@@ -80,6 +99,13 @@ const SalaryReport = () => {
                     </table>
                 </div>
                 <div className="flex gap-2 mt-4">
+                    <button
+                        onClick={handleExportExcel}
+                        className="flex items-center gap-2 px-6 py-2 bg-green-700 border border-green-800 text-white font-bold uppercase tracking-widest text-[10px] shadow-sm active:translate-y-0.5"
+                    >
+                        <Download size={16} />
+                        Export
+                    </button>
                     <button className="flex items-center gap-2 px-6 py-2 bg-[#316AC5] border border-[#26539a] text-white font-bold uppercase tracking-widest text-[10px] shadow-sm active:translate-y-0.5">
                         <Printer size={16} />
                         Print

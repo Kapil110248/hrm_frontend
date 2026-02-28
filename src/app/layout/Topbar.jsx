@@ -362,7 +362,7 @@ const Topbar = ({ onLogout, onSelectCompany, companyName, isCompanySelected = fa
                 'stat_p24': '/statutory/p24',
                 'stat_p45': '/statutory/p45',
                 'stat_nht': '/statutory/nht',
-                'stat_nis_nht': '/statutory/nis-nht',
+                'stat_nis_nht': '/reports/statutory-summary',
                 'stat_s01': '/statutory/s01',
                 'stat_s02': '/statutory/s02',
                 'stat_pension': '/statutory/pension',
@@ -424,7 +424,7 @@ const Topbar = ({ onLogout, onSelectCompany, companyName, isCompanySelected = fa
             {/* 1. Title Bar */}
             <div className="bg-[#0B4FD7] text-white h-8 flex items-center justify-between px-3 text-[11px] font-bold uppercase tracking-wider shadow-sm">
                 <div className="flex items-center gap-2">
-                    <span className="truncate max-w-[200px] md:max-w-none drop-shadow-md">HRM Payroll Terminal - {companyName || 'Session Restricted'}</span>
+                    <span className="truncate max-w-[200px] md:max-w-none drop-shadow-md">Island HR Solutions HRM System - {companyName || 'Session Restricted'}</span>
                 </div>
                 <div className="flex items-center gap-1">
                     {/* Window Controls Mockup */}

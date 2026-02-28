@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Printer, LogOut, FileText, Download, Send } from 'lucide-react';
 import { api } from '../../services/api';
+import * as XLSX from 'xlsx';
 
 const BankTransferAdvice = () => {
     const navigate = useNavigate();
@@ -136,47 +137,22 @@ const BankTransferAdvice = () => {
             return;
         }
 
-        // CSV Header
-        const headers = ["Employee ID", "Personnel Name", "Account Number", "Bank Institution", "Net Amount", "Status"];
+        const dataToExport = filteredData.map(item => ({
+            'Employee ID': item.employeeId,
+            'Personnel Name': item.name,
+            'Account Number': item.accountNo,
+            'Bank Institution': item.bank,
+            'Net Amount': item.amount,
+            'Status': item.status
+        }));
 
-        // Map data rows
-        const rows = filteredData.map(item => [
-            item.employeeId,
-            `"${item.name.replace(/"/g, '""')}"`, // Escape quotes in names
-            `"${item.accountNo}"`, // Force string for account numbers to preserve leading zeros
-            item.bank,
-            item.amount.toFixed(2),
-            item.status
-        ].join(","));
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Bank Advice');
 
-        // Combine with BOM for Excel UTF-8 compatibility
-        const BOM = "\uFEFF";
-        const csvContent = BOM + [headers.join(","), ...rows].join("\r\n");
-
-        // Create Blob
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8' });
-
-        // Create download link
-        const url = window.URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.style.display = 'none';
-
-        // Sanitize filename
         const safeBank = (filters.bank || 'CONSOLIDATED').replace(/[^a-z0-9]/yi, '_');
-        const filename = `BANK_ADVICE_${safeBank}_${filters.payPeriod}_${filters.ofYear}.csv`;
-        link.setAttribute("download", filename);
-
-        document.body.appendChild(link);
-
-        // Trigger download
-        link.click();
-
-        // Cleanup
-        setTimeout(() => {
-            document.body.removeChild(link);
-            window.URL.revokeObjectURL(url);
-        }, 100);
+        const filename = `BANK_ADVICE_${safeBank}_${filters.payPeriod}_${filters.ofYear}.xlsx`;
+        XLSX.writeFile(wb, filename);
     };
 
     const handlePrint = () => {
