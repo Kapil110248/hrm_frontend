@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { FileText, Search, User, ArrowLeft, Printer, Download, Loader2 } from 'lucide-react';
 import { api } from '../../services/api';
+import { IMAGE_BASE_URL } from '../../api/apiClient';
 
 const PayslipPreview = () => {
     const navigate = useNavigate();
@@ -153,7 +154,7 @@ const PayslipPreview = () => {
                                 <div className="flex items-start gap-6">
                                     {companyInfo?.logo && (
                                         <div className="w-16 h-16 bg-gray-50 rounded border border-gray-200 p-1 flex items-center justify-center shrink-0">
-                                            <img src={`http://localhost:5000${companyInfo.logo}`} alt="Logo" className="max-w-full max-h-full object-contain" />
+                                            <img src={companyInfo.logo.startsWith('http') ? companyInfo.logo : `${IMAGE_BASE_URL}${companyInfo.logo}`} alt="Logo" className="max-w-full max-h-full object-contain" />
                                         </div>
                                     )}
                                     <div>

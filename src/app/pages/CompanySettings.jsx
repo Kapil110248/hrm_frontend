@@ -6,7 +6,7 @@ import {
     Hash, Landmark, UserCheck, Loader2
 } from 'lucide-react';
 import { api } from '../../services/api';
-import apiClient from '../../api/apiClient';
+import apiClient, { IMAGE_BASE_URL } from '../../api/apiClient';
 
 const CompanySettings = () => {
     const navigate = useNavigate();
@@ -756,7 +756,7 @@ C:\\MICROBRIDGE SOFTWARE\\SMARTPA`,
                                                                 <span className="text-[9px] text-gray-400 uppercase">Uploading...</span>
                                                             </div>
                                                         ) : formData.logo ? (
-                                                            <img src={formData.logo} alt="Company Logo" className="object-contain max-h-full max-w-full p-2" />
+                                                            <img src={formData.logo.startsWith('http') ? formData.logo : `${IMAGE_BASE_URL}${formData.logo}`} alt="Company Logo" className="object-contain max-h-full max-w-full p-2" />
                                                         ) : (
                                                             <div className="text-center p-4">
                                                                 <span className="text-4xl font-black text-gray-100 block mb-1">LOGO</span>

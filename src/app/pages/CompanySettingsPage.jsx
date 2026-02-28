@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, createContext, useContext } from 'r
 import { useNavigate } from 'react-router-dom';
 import { Save as SaveIcon, Edit3, RotateCcw as RevertIcon, LogOut as ExitIcon, Folder, Upload, Image as ImageIcon } from 'lucide-react';
 import { api } from '../../services/api';
+import { IMAGE_BASE_URL } from '../../api/apiClient';
 
 const clone = (v) => (v && typeof v === 'object' ? (Array.isArray(v) ? v.map(clone) : { ...v, ...Object.fromEntries(Object.entries(v).map(([k, x]) => [k, clone(x)])) }) : v);
 
@@ -150,7 +151,7 @@ const CompanySettingsPage = () => {
                                 ... (company.settings || {})
                             };
                             setGeneral(mappedGeneral);
-                            setLogoPreview(company.logo ? `http://localhost:5000${company.logo}` : null);
+                            setLogoPreview(company.logo ? (company.logo.startsWith('http') ? company.logo : `${IMAGE_BASE_URL}${company.logo}`) : null);
                             
                             // Load other settings if they exist in localStorage for now, 
                             // or merge with what we got from API
