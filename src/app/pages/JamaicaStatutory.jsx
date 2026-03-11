@@ -15,6 +15,9 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
     const [company, setCompany] = useState(null);
     const [employees, setEmployees] = useState([]);
     const [selectedEmployeeId, setSelectedEmployeeId] = useState('');
+    const [validationWarnings, setValidationWarnings] = useState([]);
+    const [filteredData, setFilteredData] = useState([]);
+    const [showPreview, setShowPreview] = useState(false);
 
     // Helper to format period for API (YYYY-MM to MMM-YYYY)
     const formatPeriodForApi = (p) => {
@@ -54,24 +57,55 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
 
             setLoading(true);
             try {
-                const params = {
-                    companyId: company.id
-                };
+                const [year] = period.split('-');
+                let res;
 
-                // For P45, we fetch all payrolls for the employee (or company) to calculate YTD
-                // For others, we filter by period in the API
-                if (type !== 'P45') {
-                    params.period = formatPeriodForApi(period);
+                if (type === 'S02' || type === 'NIS-NHT') {
+                    // For Annual reports, fetch the yearly summary
+                    res = await api.fetchStatutorySummary({
+                        companyId: company.id,
+                        year: year
+                    });
+                } else {
+                    // For Monthly reports (S01, P45)
+                    const params = { companyId: company.id };
+                    if (type !== 'P45') {
+                        params.period = formatPeriodForApi(period);
+                    }
+                    if (selectedEmployeeId) {
+                        params.employeeId = selectedEmployeeId;
+                    }
+                    res = await api.fetchPayrolls(params);
                 }
-
-                if (selectedEmployeeId) {
-                    params.employeeId = selectedEmployeeId;
-                }
-
-                const res = await api.fetchPayrolls(params);
 
                 if (res.success) {
-                    setPayrollData(res.data);
+                    const data = res.data;
+                    const warnings = [];
+                    const clean = [];
+
+                    data.forEach(p => {
+                        const emp = p.employee || p; // Handle different structures for S01 vs S02
+                        const name = p.employeeName || `${emp.firstName} ${emp.lastName}`;
+                        const trn = emp.trn || '';
+
+                        const errors = [];
+                        if (!trn) errors.push("Missing TRN");
+                        else if (!/^\d{9}$/.test(trn.replace(/\D/g, ''))) errors.push("TRN must be exactly 9 digits");
+
+                        if (!emp.nisNumber) errors.push("Missing NIS");
+                        if (!emp.nhtNumber) errors.push("Missing NHT");
+                        if (!emp.dob) errors.push("Missing Date of Birth");
+
+                        if (errors.length > 0) {
+                            warnings.push(`Employee ${name} excluded: ${errors.join(', ')}`);
+                        } else {
+                            clean.push(p);
+                        }
+                    });
+
+                    setValidationWarnings(warnings);
+                    setFilteredData(clean);
+                    setPayrollData(data);
                 }
             } catch (err) {
                 console.error(err);
@@ -190,11 +224,11 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
             title: 'S02 - Annual Statutory Declaration',
             formCode: 'F-S02-YEARLY',
             fields: [
-                { label: 'Total Annual Gross', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.grossSalary || 0), 0).toFixed(2) },
+                { label: 'Total Annual Gross', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.grossPay || 0), 0).toFixed(2) },
                 { label: 'Total PAYE Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.paye || 0), 0).toFixed(2) },
                 { label: 'Total Ed Tax Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.edTax || 0), 0).toFixed(2) },
-                { label: 'Total NIS Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.nis || 0), 0).toFixed(2) },
-                { label: 'Total NHT Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.nht || 0), 0).toFixed(2) }
+                { label: 'Total NIS Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.nisEmployee || 0), 0).toFixed(2) },
+                { label: 'Total NHT Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.nhtEmployee || 0), 0).toFixed(2) }
             ]
         }
     };
@@ -202,15 +236,81 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
     const currentReport = reports[type] || reports['S01'];
 
     const handleExportExcel = () => {
-        const dataToExport = currentReport.fields.map(f => ({
-            'Category': f.category,
-            'Field': f.label,
-            'Value': f.value ? f.value(payrollData) : '0.00'
-        }));
+        if (!filteredData || filteredData.length === 0) {
+            alert("No finalized payroll data found for the selected period.");
+            return;
+        }
+
+        let dataToExport = [];
+        let fileName = `${type}_Report_${period}`;
+
+        const formatDate = (date) => {
+            if (!date) return 'N/A';
+            return new Date(date).toISOString().split('T')[0];
+        };
+
+        if (type === 'S01') {
+            dataToExport = filteredData.map(p => ({
+                'TRN': p.employee?.trn?.replace(/\D/g, '') || '',
+                'Employee Name': `${p.employee?.firstName} ${p.employee?.lastName}`,
+                'Date Of Birth': formatDate(p.employee?.dob),
+                'Gross Emoluments': parseFloat(p.grossSalary || 0).toFixed(2),
+                'PAYE': parseFloat(p.paye || 0).toFixed(2),
+                'Employee NIS Contribution': parseFloat(p.nis || 0).toFixed(2),
+                'Employer NIS Contribution': (parseFloat(p.grossSalary || 0) * 0.03).toFixed(2),
+                'NHT Contribution': parseFloat(p.nht || 0).toFixed(2),
+                'Education Tax': parseFloat(p.edTax || 0).toFixed(2)
+            }));
+            const [year, month] = period.split('-');
+            const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+            fileName = `S01_Schedule_A_${monthNames[parseInt(month) - 1]}-${year}`;
+        }
+        else if (type === 'S02') {
+            dataToExport = filteredData.map(p => ({
+                'TRN': p.trn?.replace(/\D/g, '') || '',
+                'Employee Name': p.employeeName,
+                'Date Of Birth': formatDate(p.dob),
+                'Total Gross Emoluments': parseFloat(p.grossPay || 0).toFixed(2),
+                'Total PAYE': parseFloat(p.paye || 0).toFixed(2),
+                'Total Employee NIS': parseFloat(p.nisEmployee || 0).toFixed(2),
+                'Total Employer NIS': parseFloat(p.nisEmployer || 0).toFixed(2),
+                'Total NHT': parseFloat(p.nhtEmployee || 0).toFixed(2),
+                'Total Education Tax': parseFloat(p.edTax || 0).toFixed(2)
+            }));
+            fileName = `S02_Schedule_A_${period.split('-')[0]}`;
+        }
+        else {
+            dataToExport = currentReport.fields.map(f => ({
+                'Category': f.category,
+                'Field': f.label,
+                'Value': f.value ? f.value(filteredData) : '0.00'
+            }));
+        }
+
         const ws = XLSX.utils.json_to_sheet(dataToExport);
+
+        // --- PREVENT SCIENTIFIC NOTATION FOR TRN ---
+        // Iterate through the TRN column (column A) and ensure it's treated as a string
+        if (type === 'S01' || type === 'S02') {
+            const range = XLSX.utils.decode_range(ws['!ref']);
+            for (let R = range.s.r + 1; R <= range.e.r; ++R) {
+                const cellRef = XLSX.utils.encode_cell({ c: 0, r: R });
+                if (ws[cellRef]) {
+                    ws[cellRef].t = 's'; // Force type to string
+                }
+            }
+        }
+
         const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, type);
-        XLSX.writeFile(wb, `${type}_Report_${period}.xlsx`);
+        XLSX.utils.book_append_sheet(wb, ws, 'Schedule A');
+
+        // Auto-size columns
+        const wscols = Object.keys(dataToExport[0]).map(key => ({
+            wch: Math.max(key.length, 15)
+        }));
+        ws['!cols'] = wscols;
+
+        XLSX.writeFile(wb, `${fileName}.xlsx`);
     };
 
     return (
@@ -230,13 +330,26 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
                     </div>
                     <div className="h-6 w-px bg-gray-600 shrink-0 hidden sm:block"></div>
                     <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[9px] font-black text-gray-400 uppercase italic">Filing Period:</span>
-                        <input
-                            type="month"
-                            value={period}
-                            onChange={(e) => setPeriod(e.target.value)}
-                            className="bg-[#202124] border border-gray-700 text-blue-400 text-[9px] sm:text-[10px] font-black p-1 rounded focus:outline-none"
-                        />
+                        <span className="text-[9px] font-black text-gray-400 uppercase italic">
+                            {(type === 'S02' || type === 'NIS-NHT') ? 'Filing Year:' : 'Filing Period:'}
+                        </span>
+                        {(type === 'S02' || type === 'NIS-NHT') ? (
+                            <input
+                                type="number"
+                                value={period.split('-')[0]}
+                                onChange={(e) => setPeriod(`${e.target.value}-01`)}
+                                className="bg-[#202124] border border-gray-700 text-blue-400 text-[9px] sm:text-[10px] font-black p-1 rounded focus:outline-none w-20"
+                                min="2000"
+                                max="2100"
+                            />
+                        ) : (
+                            <input
+                                type="month"
+                                value={period}
+                                onChange={(e) => setPeriod(e.target.value)}
+                                className="bg-[#202124] border border-gray-700 text-blue-400 text-[9px] sm:text-[10px] font-black p-1 rounded focus:outline-none"
+                            />
+                        )}
                     </div>
                     {type === 'P45' && (
                         <div className="flex items-center gap-2 shrink-0">
@@ -255,6 +368,12 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
                     )}
                 </div>
                 <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button
+                        onClick={() => setShowPreview(!showPreview)}
+                        className={`flex-1 sm:flex-none p-1.5 sm:p-1 px-3 sm:px-4 ${showPreview ? 'bg-blue-600' : 'bg-[#202124]'} hover:opacity-80 text-white rounded text-[9px] sm:text-[10px] font-black uppercase border border-gray-600 transition-all flex items-center justify-center gap-2`}
+                    >
+                        <Search size={12} /> <span className="sm:inline">{showPreview ? 'Show Form' : 'Data Preview'}</span>
+                    </button>
                     <button onClick={() => window.print()} className="flex-1 sm:flex-none p-1.5 sm:p-1 px-3 sm:px-4 bg-blue-600 hover:bg-blue-700 text-white rounded text-[9px] sm:text-[10px] font-black uppercase shadow-inner transition-all flex items-center justify-center gap-2">
                         <Printer size={12} /> <span className="sm:inline">Print</span>
                     </button>
@@ -271,86 +390,161 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
                 </div>
             </div>
 
-            {/* View Area */}
-            <div className="flex-1 overflow-auto p-2 sm:p-4 md:p-8 lg:p-12 flex justify-center bg-[#525659]">
-                <div className="bg-white w-full max-w-[8.5in] min-h-[11in] shadow-2xl p-6 sm:p-12 md:p-16 flex flex-col relative overflow-hidden">
-
-                    {/* Watermark Logo */}
-                    <div className="absolute top-8 sm:top-16 right-8 sm:right-16 opacity-[0.03] pointer-events-none">
-                        <div className="w-16 h-16 sm:w-64 sm:h-64 border-[10px] border-blue-900 rounded-full flex items-center justify-center font-black text-blue-900 text-2xl sm:text-9xl italic">S</div>
+            {/* Validation Warnings Panel */}
+            {validationWarnings.length > 0 && (
+                <div className="mx-4 mt-4 p-4 bg-red-950/40 border border-red-500/50 rounded-lg no-print">
+                    <div className="flex items-center gap-2 mb-2">
+                        <ShieldCheck className="text-red-400" size={16} />
+                        <span className="text-red-400 text-xs font-black uppercase tracking-widest">Data Validation Warnings</span>
                     </div>
-
-                    <div className="mb-8 sm:mb-12 border-b-2 border-blue-900 pb-6 sm:pb-8">
-                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-0">
-                            <div>
-                                <h1 className="text-xl sm:text-3xl font-black text-blue-900 italic tracking-tighter leading-none mb-1">OFFICIAL RETURN</h1>
-                                <p className="text-[10px] sm:text-[12px] font-black text-gray-500 uppercase tracking-[0.1em] sm:tracking-[0.2em]">{currentReport.title}</p>
-                                <div className="mt-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">FORM CODE: <span className="text-gray-800">{currentReport.formCode}</span></div>
-                            </div>
-                            <div className="sm:text-right w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
-                                <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase leading-none">Government of Jamaica</p>
-                                <p className="text-[10px] sm:text-[11px] font-black text-blue-900 uppercase mt-1">Tax Administration Jamaica (TAJ)</p>
-                                <div className="mt-4 text-[9px] sm:text-[10px] font-bold text-gray-400 italic">Snapshot Date: {new Date().toLocaleDateString()}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex-1 space-y-10">
-                        {Array.from(new Set(currentReport.fields.map(f => f.category))).map((cat, idx) => (
-                            <div key={idx} className="space-y-4">
-                                <h3 className="text-[9px] sm:text-[11px] font-black text-blue-900 uppercase tracking-widest border-l-4 border-blue-900 pl-2 sm:pl-3 bg-gray-50 py-1.5 flex justify-between items-center">
-                                    <span>Section {idx + 1}: {cat}</span>
-                                    <span className="text-[8px] opacity-40 font-bold">{company?.name || 'SYNC_ID_LIVE'}</span>
-                                </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 px-4">
-                                    {currentReport.fields.filter(f => f.category === cat).map((field, fIdx) => (
-                                        <div key={fIdx} className="flex flex-col border-b border-gray-100 pb-2 group hover:border-blue-200 transition-colors">
-                                            <span className="text-[8px] sm:text-[9px] font-black text-gray-400 uppercase tracking-wider">{field.label}</span>
-                                            <div className="text-[11px] sm:text-sm font-black text-gray-800 uppercase tabular-nums py-1 flex items-center justify-between">
-                                                <span>$</span>
-                                                <span>{field.value ? field.value(payrollData) : '0.00'}</span>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-
-                        {payrollData.length === 0 && !loading && (
-                            <div className="p-12 text-center border-2 border-dashed border-gray-100 italic font-bold text-gray-300 uppercase tracking-widest text-[10px]">
-                                No payroll transmission found for the selected period. Report values defaulted to zero sequence.
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="mt-20 p-6 border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col sm:flex-row gap-6 italic relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none rotate-12">
-                            <ShieldCheck size={120} />
-                        </div>
-                        <ShieldCheck className="text-blue-900 shrink-0 mx-auto sm:mx-0 relative z-10" size={24} />
-                        <div className="w-full relative z-10">
-                            <p className="text-[9px] sm:text-[10px] font-black text-gray-500 uppercase italic mb-1 text-center sm:text-left tracking-widest">Certification of Accuracy</p>
-                            <p className="text-[10px] sm:text-[11px] text-gray-600 leading-relaxed font-bold text-center sm:text-left">
-                                I hereby certify that the information provided in this statutory return is true and correct, and has been computed in accordance with the <span className="text-blue-900 font-black">Tax Administration Act of Jamaica</span> using the SmartHRM Engine v5.1.
+                    <div className="space-y-1">
+                        {validationWarnings.map((warning, i) => (
+                            <p key={i} className="text-red-200/70 text-[10px] sm:text-[11px] font-medium leading-relaxed">
+                                {warning}
                             </p>
-                            <div className="mt-12 flex flex-col sm:flex-row justify-between items-center sm:items-end border-t border-gray-300 pt-4 gap-4 sm:gap-0">
-                                <div className="text-center w-full sm:w-auto">
-                                    <div className="w-48 border-b-2 border-gray-900 pb-1 font-mono italic text-xs uppercase text-gray-400">Electronic Sign</div>
-                                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-1 block">Authorized Agent</span>
-                                </div>
-                                <div className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Digital Stamp: {Math.random().toString(36).substr(2, 9).toUpperCase()}</div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="mt-12 pt-4 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center opacity-30 gap-2 sm:gap-0">
-                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-[0.3em] italic">Official Payroll Protocol Audit Document — Year {new Date().getFullYear()}</span>
-                        <div className="flex items-center gap-2">
-                            <Landmark size={12} className="text-gray-400" />
-                            <span className="text-[8px] font-black text-gray-400 italic">SMARTHRM COMPLIANCE SUITE</span>
-                        </div>
+                        ))}
                     </div>
                 </div>
+            )}
+
+            {/* View Area */}
+            <div className="flex-1 overflow-auto p-2 sm:p-4 md:p-8 lg:p-12 flex justify-center bg-[#525659]">
+                {showPreview ? (
+                    <div className="bg-[#1e1e1e] w-full max-w-6xl rounded-lg shadow-2xl border border-gray-800 overflow-hidden flex flex-col h-fit">
+                        <div className="bg-[#2d2d2d] p-4 border-b border-gray-800 flex justify-between items-center">
+                            <h3 className="text-white text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                                <Search size={16} className="text-blue-400" />
+                                RAW SCHEDULE A PREVIEW
+                            </h3>
+                            <span className="text-gray-400 text-[10px] font-bold">Total Rows: {filteredData.length}</span>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-[11px] text-gray-300">
+                                <thead className="bg-[#252526] text-gray-500 uppercase font-black text-[9px] border-b border-gray-800">
+                                    <tr>
+                                        <th className="px-4 py-3">TRN</th>
+                                        <th className="px-4 py-3">Employee Name</th>
+                                        <th className="px-4 py-3">DOB</th>
+                                        <th className="px-4 py-3 text-right">{type === 'S02' ? 'Annual Gross' : 'Gross Pay'}</th>
+                                        <th className="px-4 py-3 text-right">PAYE</th>
+                                        <th className="px-4 py-3 text-right">EE NIS</th>
+                                        <th className="px-4 py-3 text-right">ER NIS</th>
+                                        <th className="px-4 py-3 text-right">NHT</th>
+                                        <th className="px-4 py-3 text-right">Ed Tax</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-800">
+                                    {filteredData.map((p, i) => {
+                                        const emp = p.employee || p;
+                                        const name = p.employeeName || `${emp.firstName} ${emp.lastName}`;
+                                        const gross = parseFloat(p.grossSalary || p.grossPay || 0);
+                                        const nisE = parseFloat(p.nis || p.nisEmployee || 0);
+                                        const nisR = p.nisEmployer ? parseFloat(p.nisEmployer) : (gross * 0.03);
+                                        const trn = (emp.trn || '').replace(/\D/g, '');
+
+                                        return (
+                                            <tr key={i} className="hover:bg-white/5 transition-colors group">
+                                                <td className="px-4 py-3 font-mono text-blue-400 font-bold">{trn}</td>
+                                                <td className="px-4 py-3 text-white font-bold">{name}</td>
+                                                <td className="px-4 py-3">{new Date(emp.dob).toISOString().split('T')[0]}</td>
+                                                <td className="px-4 py-3 text-right tabular-nums text-green-400 font-bold">${gross.toFixed(2)}</td>
+                                                <td className="px-4 py-3 text-right tabular-nums">${parseFloat(p.paye || 0).toFixed(2)}</td>
+                                                <td className="px-4 py-3 text-right tabular-nums">${nisE.toFixed(2)}</td>
+                                                <td className="px-4 py-3 text-right tabular-nums text-blue-300/80 italic">${nisR.toFixed(2)}</td>
+                                                <td className="px-4 py-3 text-right tabular-nums">${parseFloat(p.nht || p.nhtEmployee || 0).toFixed(2)}</td>
+                                                <td className="px-4 py-3 text-right tabular-nums">${parseFloat(p.edTax || 0).toFixed(2)}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div className="bg-[#252526] p-4 text-[10px] text-gray-500 italic border-t border-gray-800">
+                            * This preview reflects the exact numeric values and text formatting that will be pushed to the Excel generator.
+                        </div>
+                    </div>
+                ) : (
+                    <div className="bg-white w-full max-w-[8.5in] min-h-[11in] shadow-2xl p-6 sm:p-12 md:p-16 flex flex-col relative overflow-hidden">
+                        {/* Watermark Logo */}
+                        <div className="absolute top-8 sm:top-16 right-8 sm:right-16 opacity-[0.03] pointer-events-none">
+                            <div className="w-16 h-16 sm:w-64 sm:h-64 border-[10px] border-blue-900 rounded-full flex items-center justify-center font-black text-blue-900 text-2xl sm:text-9xl italic">S</div>
+                        </div>
+
+                        <div className="mb-8 sm:mb-12 border-b-2 border-blue-900 pb-6 sm:pb-8">
+                            <div className="flex flex-col sm:flex-row justify-between items-start gap-4 sm:gap-0">
+                                <div>
+                                    <h1 className="text-xl sm:text-3xl font-black text-blue-900 italic tracking-tighter leading-none mb-1">OFFICIAL RETURN</h1>
+                                    <p className="text-[10px] sm:text-[12px] font-black text-gray-500 uppercase tracking-[0.1em] sm:tracking-[0.2em]">{currentReport.title}</p>
+                                    <div className="mt-4 text-[9px] sm:text-[10px] font-bold text-gray-400 uppercase">FORM CODE: <span className="text-gray-800">{currentReport.formCode}</span></div>
+                                    {(type === 'S02' || type === 'NIS-NHT') && (
+                                        <div className="mt-2 text-[12px] sm:text-[14px] font-black text-blue-800 uppercase italic">YEAR: {period.split('-')[0]}</div>
+                                    )}
+                                </div>
+                                <div className="sm:text-right w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-gray-100">
+                                    <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase leading-none">Government of Jamaica</p>
+                                    <p className="text-[10px] sm:text-[11px] font-black text-blue-900 uppercase mt-1">Tax Administration Jamaica (TAJ)</p>
+                                    <div className="mt-4 text-[9px] sm:text-[10px] font-bold text-gray-400 italic">Snapshot Date: {new Date().toLocaleDateString()}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 space-y-10">
+                            {Array.from(new Set(currentReport.fields.map(f => f.category))).map((cat, idx) => (
+                                <div key={idx} className="space-y-4">
+                                    <h3 className="text-[9px] sm:text-[11px] font-black text-blue-900 uppercase tracking-widest border-l-4 border-blue-900 pl-2 sm:pl-3 bg-gray-50 py-1.5 flex justify-between items-center">
+                                        <span>Section {idx + 1}: {cat}</span>
+                                        <span className="text-[8px] opacity-40 font-bold">{company?.name || 'SYNC_ID_LIVE'}</span>
+                                    </h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-6 px-4">
+                                        {currentReport.fields.filter(f => f.category === cat).map((field, fIdx) => (
+                                            <div key={fIdx} className="flex flex-col border-b border-gray-100 pb-2 group hover:border-blue-200 transition-colors">
+                                                <span className="text-[8px] sm:text-[9px] font-black text-gray-400 uppercase tracking-wider">{field.label}</span>
+                                                <div className="text-[11px] sm:text-sm font-black text-gray-800 uppercase tabular-nums py-1 flex items-center justify-between">
+                                                    <span>$</span>
+                                                    <span>{field.value ? field.value(filteredData) : '0.00'}</span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ))}
+
+                            {payrollData.length === 0 && !loading && (
+                                <div className="p-12 text-center border-2 border-dashed border-gray-100 italic font-bold text-gray-300 uppercase tracking-widest text-[10px]">
+                                    No payroll transmission found for the selected period. Report values defaulted to zero sequence.
+                                </div>
+                            )}
+                        </div>
+
+                        <div className="mt-20 p-6 border-2 border-dashed border-gray-200 bg-gray-50 flex flex-col sm:flex-row gap-6 italic relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-2 opacity-5 pointer-events-none rotate-12">
+                                <ShieldCheck size={120} />
+                            </div>
+                            <ShieldCheck className="text-blue-900 shrink-0 mx-auto sm:mx-0 relative z-10" size={24} />
+                            <div className="w-full relative z-10">
+                                <p className="text-[9px] sm:text-[10px] font-black text-gray-500 uppercase italic mb-1 text-center sm:text-left tracking-widest">Certification of Accuracy</p>
+                                <p className="text-[10px] sm:text-[11px] text-gray-600 leading-relaxed font-bold text-center sm:text-left">
+                                    I hereby certify that the information provided in this statutory return is true and correct, and has been computed in accordance with the <span className="text-blue-900 font-black">Tax Administration Act of Jamaica</span> using the SmartHRM Engine v5.1.
+                                </p>
+                                <div className="mt-12 flex flex-col sm:flex-row justify-between items-center sm:items-end border-t border-gray-300 pt-4 gap-4 sm:gap-0">
+                                    <div className="text-center w-full sm:w-auto">
+                                        <div className="w-48 border-b-2 border-gray-900 pb-1 font-mono italic text-xs uppercase text-gray-400">Electronic Sign</div>
+                                        <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest mt-1 block">Authorized Agent</span>
+                                    </div>
+                                    <div className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Digital Stamp: {Math.random().toString(36).substr(2, 9).toUpperCase()}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-12 pt-4 border-t border-gray-100 flex flex-col sm:flex-row justify-between items-center opacity-30 gap-2 sm:gap-0">
+                            <span className="text-[8px] font-black text-gray-400 uppercase tracking-[0.3em] italic">Official Payroll Protocol Audit Document — Year {new Date().getFullYear()}</span>
+                            <div className="flex items-center gap-2">
+                                <Landmark size={12} className="text-gray-400" />
+                                <span className="text-[8px] font-black text-gray-400 italic">SMARTHRM COMPLIANCE SUITE</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

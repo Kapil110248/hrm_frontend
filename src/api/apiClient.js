@@ -1,9 +1,9 @@
 import axios from 'axios';
 
 const isLocal = window.location.hostname === 'localhost';
-const BASE_URL = isLocal 
-    ? 'http://localhost:5000/api' 
-    : 'https://hrmbackend-production-6b56.up.railway.app/api';
+const BASE_URL = isLocal
+    ? 'http://localhost:5000/api'
+    : 'https://hrmbackend-production-a429.up.railway.app/api';
 
 export const IMAGE_BASE_URL = isLocal ? 'http://localhost:5000' : 'https://hrmbackend-production-6b56.up.railway.app';
 
