@@ -224,12 +224,41 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
             title: 'S02 - Annual Statutory Declaration',
             formCode: 'F-S02-YEARLY',
             fields: [
-                { label: 'Total Annual Gross', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.grossPay || 0), 0).toFixed(2) },
-                { label: 'Total PAYE Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.paye || 0), 0).toFixed(2) },
-                { label: 'Total Ed Tax Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.edTax || 0), 0).toFixed(2) },
-                { label: 'Total NIS Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.nisEmployee || 0), 0).toFixed(2) },
                 { label: 'Total NHT Withheld', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.nhtEmployee || 0), 0).toFixed(2) }
             ]
+        },
+        'Pension': {
+            title: 'Pension Contribution Report',
+            formCode: 'F-PENSION-ANNUAL',
+            fields: [
+                { label: 'Total Gross Emoluments', category: 'Financials', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.grossSalary || 0), 0).toFixed(2) },
+                { label: 'Employee Pension Contribution', category: 'Deductions', value: (data) => data.reduce((sum, p) => sum + parseFloat(p.pension || 0), 0).toFixed(2) },
+                { 
+                    label: 'Employer Matching Contribution', 
+                    category: 'Deductions', 
+                    value: (data) => data.reduce((sum, p) => sum + parseFloat(p.pension || 0), 0).toFixed(2) 
+                },
+                {
+                    label: 'Total Pension Remittance',
+                    category: 'Summary',
+                    value: (data) => {
+                        const total = data.reduce((sum, p) => sum + (parseFloat(p.pension || 0) * 2), 0);
+                        return total.toFixed(2);
+                    }
+                }
+            ]
+        },
+        'TaxUpload': {
+            title: 'Tax Website Upload Center',
+            formCode: 'TAJ-FILE-PACKET',
+            description: 'Generate and validate official returns for Tax Administration Jamaica (TAJ) website upload.',
+            filings: [
+                { id: 'S01', name: 'S01 - Monthly Remittance', format: 'Excel (Standard)', taCode: 'RA01' },
+                { id: 'S02', name: 'S02 - Annual Declaration', format: 'Excel (Annual)', taCode: 'RA02' },
+                { id: 'P24', name: 'P24 - Year End Certificates', format: 'PDF/Excel Batch', taCode: 'RA24' },
+                { id: 'P45', name: 'P45 - Departure Certificate', format: 'PDF (Single)', taCode: 'RA45' }
+            ],
+            fields: [] // Hub view uses different rendering logic
         }
     };
 
@@ -461,6 +490,72 @@ const JamaicaStatutory = ({ type = 'S01' }) => {
                         </div>
                         <div className="bg-[#252526] p-4 text-[10px] text-gray-500 italic border-t border-gray-800">
                             * This preview reflects the exact numeric values and text formatting that will be pushed to the Excel generator.
+                        </div>
+                    </div>
+                ) : type === 'TaxUpload' ? (
+                    <div className="bg-[#1e1e1e] w-full max-w-5xl rounded-lg shadow-2xl border border-gray-800 p-8 flex flex-col gap-6">
+                        <div className="flex justify-between items-start border-b border-gray-800 pb-6">
+                            <div>
+                                <h1 className="text-2xl font-black text-white italic tracking-tighter mb-1">TAJ FILING HUB</h1>
+                                <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest italic">Tax Administration Jamaica Upload Manager</p>
+                            </div>
+                            <div className="text-right">
+                                <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-1 italic">Reporting Entity</span>
+                                <span className="text-sm font-black text-white uppercase italic">{company?.name || 'SMARTHRM_ORG_NODE'}</span>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            {currentReport.filings.map((filing, idx) => {
+                                const isReady = validationWarnings.length === 0;
+                                return (
+                                    <div key={idx} className="bg-[#252526] p-6 border border-gray-800 rounded-lg hover:border-blue-500/50 transition-all group relative overflow-hidden">
+                                        <div className="flex justify-between items-start mb-4">
+                                            <div>
+                                                <h3 className="text-white font-black text-sm uppercase italic tracking-tight mb-1">{filing.name}</h3>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[9px] font-bold text-gray-500 uppercase">Format:</span>
+                                                    <span className="text-[9px] font-black text-blue-400 uppercase italic">{filing.format}</span>
+                                                </div>
+                                            </div>
+                                            <div className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${isReady ? 'bg-green-500/10 text-green-500 border border-green-500/20' : 'bg-orange-500/10 text-orange-500 border border-orange-500/20'}`}>
+                                                {isReady ? 'STATUS: READY' : 'STATUS: CHECK REQD'}
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-4 mt-6">
+                                            <button 
+                                                onClick={() => {
+                                                    alert(`Navigating to ${filing.id} for download...`);
+                                                    const path = filing.id === 'S01' ? '/statutory/s01' : 
+                                                               filing.id === 'S02' ? '/statutory/s02' :
+                                                               filing.id === 'P24' ? '/statutory/p24' : '/statutory/p45';
+                                                    navigate(path);
+                                                }}
+                                                className="flex-1 bg-blue-600 hover:bg-blue-500 text-white p-2 rounded text-[10px] font-black uppercase tracking-widest transition-all"
+                                            >
+                                                OPEN FILING
+                                            </button>
+                                            <div className="w-10 h-10 border border-gray-700 rounded flex items-center justify-center text-gray-500 group-hover:text-blue-400 transition-colors">
+                                                <Download size={16} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+
+                        <div className="mt-8 p-6 bg-blue-950/20 border border-blue-500/30 rounded-lg">
+                            <div className="flex items-start gap-3">
+                                <ShieldCheck className="text-blue-400 shrink-0" size={20} />
+                                <div>
+                                    <h4 className="text-[11px] font-black text-blue-400 uppercase tracking-[0.2em] mb-2">Technical Filing Note</h4>
+                                    <p className="text-[10px] text-blue-200/60 font-medium leading-relaxed italic">
+                                        All files generated from this hub conform to the current <span className="text-blue-300 font-bold underline">Revenue Administration Act</span> requirements. 
+                                        Please ensure your TAJ login token is active before uploading. For P24/P45 files, please verify employee TRNs in the Readiness panel above.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 ) : (

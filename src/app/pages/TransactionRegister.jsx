@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ListFilter, Search, Printer, Download, LogOut, FileText, ChevronDown, Loader2 } from 'lucide-react';
+import { ListFilter, Search, Printer, Download, LogOut, FileText, ChevronDown, Loader2, Edit2, Check, X } from 'lucide-react';
 import { api } from '../../services/api';
 import * as XLSX from 'xlsx';
 
@@ -13,6 +13,9 @@ const TransactionRegister = () => {
     const [records, setRecords] = useState([]);
     const [activeUser] = useState(JSON.parse(localStorage.getItem('currentUser') || '{}'));
     const [selectedCompany] = useState(JSON.parse(localStorage.getItem('selectedCompany') || '{}'));
+    const [editingId, setEditingId] = useState(null);
+    const [editAmount, setEditAmount] = useState('');
+    const [updating, setUpdating] = useState(false);
 
     const getCurrentPeriod = () => {
         const d = new Date();
@@ -51,6 +54,24 @@ const TransactionRegister = () => {
     useEffect(() => {
         fetchRecords();
     }, [selectedCompany.id, period]);
+
+    const handleUpdateAmount = async (id) => {
+        try {
+            setUpdating(true);
+            const response = await api.updateTransaction(id, { amount: parseFloat(editAmount) });
+            if (response.success) {
+                setEditingId(null);
+                fetchRecords();
+            } else {
+                alert(response.message || "Failed to update amount");
+            }
+        } catch (err) {
+            console.error("Update error:", err);
+            alert("An error occurred during update");
+        } finally {
+            setUpdating(false);
+        }
+    };
 
     const handleViewAudit = () => {
         setShowAudit(true);
@@ -164,7 +185,42 @@ const TransactionRegister = () => {
                                             </span>
                                         </td>
                                         <td className="p-3 font-black text-blue-800 italic group-hover:scale-105 transition-transform origin-left tabular-nums">
-                                            ${record.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            {editingId === record.id ? (
+                                                <div className="flex items-center gap-1">
+                                                    <input
+                                                        type="number"
+                                                        className="w-24 bg-white border border-blue-500 p-1 text-black not-italic font-bold outline-none shadow-inner"
+                                                        value={editAmount}
+                                                        autoFocus
+                                                        onChange={(e) => setEditAmount(e.target.value)}
+                                                    />
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); handleUpdateAmount(record.id); }}
+                                                        disabled={updating}
+                                                        className="p-1 hover:bg-green-100 text-green-600 rounded border border-green-200 bg-white"
+                                                    >
+                                                        {updating ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                                                    </button>
+                                                    <button
+                                                        onClick={(e) => { e.stopPropagation(); setEditingId(null); }}
+                                                        className="p-1 hover:bg-red-100 text-red-600 rounded border border-red-200 bg-white"
+                                                    >
+                                                        <X size={12} />
+                                                    </button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-2 group/amount">
+                                                    ${record.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                                    {record.status === 'ENTERED' && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); setEditingId(record.id); setEditAmount(record.amount); }}
+                                                            className="opacity-0 group-hover/amount:opacity-100 p-1 hover:bg-blue-100 text-blue-600 rounded border border-blue-200 bg-white transition-all scale-90"
+                                                        >
+                                                            <Edit2 size={10} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            )}
                                         </td>
                                         <td className="p-3">
                                             <span className={`px-2 py-0.5 rounded-full font-black italic uppercase text-[9px] border shadow-sm ${record.status === 'POSTED' ? 'bg-green-100 text-green-700 border-green-200' :

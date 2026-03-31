@@ -85,8 +85,12 @@ export const api = {
         return apiClient.get('/dashboard/employee-stats');
     },
 
-    fetchAuditLogs: async (limit = 10) => {
-        return apiClient.get(`/audit?limit=${limit}`);
+    fetchAuditLogs: async (limit = 10, companyId) => {
+        const query = companyId ? `&companyId=${companyId}` : '';
+        return apiClient.get(`/audit?limit=${limit}${query}`);
+    },
+    fetchAuditLogsByEntity: async (entityId) => {
+        return apiClient.get(`/audit/entity/${entityId}`);
     },
 
     fetchLiveAttendance: async (companyId) => {

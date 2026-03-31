@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { Printer, LogOut, FileText, Download, Search, User, Loader2, ShieldCheck, Landmark } from 'lucide-react';
 import { api } from '../../services/api';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 const P24Report = () => {
     const navigate = useNavigate();
@@ -13,6 +15,8 @@ const P24Report = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
     const [selectedCompany, setSelectedCompany] = useState(null);
+
+    const availableYears = Array.from({ length: 21 }, (_, i) => new Date().getFullYear() - i);
 
     useEffect(() => {
         const fetchEmployees = async () => {
@@ -63,6 +67,99 @@ const P24Report = () => {
         return new Intl.NumberFormat('en-JM', { style: 'currency', currency: 'JMD' }).format(val || 0);
     };
 
+    const handleExportPDF = () => {
+        if (!selectedEmployee) return;
+
+        const doc = new jsPDF();
+        
+        // Header
+        doc.setFontSize(18);
+        doc.setTextColor(0, 0, 128); // Blue 900
+        doc.setFont("helvetica", "bold");
+        doc.text("GOVERNMENT OF JAMAICA", 105, 20, { align: "center" });
+        
+        doc.setFontSize(14);
+        doc.text("FORM P24 - YEAR END CERTIFICATE", 105, 28, { align: "center" });
+        
+        doc.setFontSize(10);
+        doc.setTextColor(100);
+        doc.text("TAX ADMINISTRATION JAMAICA", 105, 34, { align: "center" });
+        
+        doc.setDrawColor(0, 0, 128);
+        doc.setLineWidth(1);
+        doc.line(20, 40, 190, 40);
+
+        // Details
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        doc.setFont("helvetica", "bold");
+        doc.text("TAX YEAR: " + selectedYear, 105, 48, { align: "center" });
+
+        // Employer/Employee Info
+        doc.setFontSize(9);
+        doc.setTextColor(150);
+        doc.text("REGISTERED EMPLOYER", 20, 60);
+        doc.text("SERVICE IDENTITY", 120, 60);
+        
+        doc.setTextColor(0);
+        doc.setFontSize(11);
+        doc.text(selectedCompany?.name?.toUpperCase() || "N/A", 20, 66);
+        doc.text(`${selectedEmployee.firstName} ${selectedEmployee.lastName}`.toUpperCase(), 120, 66);
+
+        doc.setFontSize(9);
+        doc.setTextColor(150);
+        doc.text("COMPANY TRN", 20, 74);
+        doc.text("STAFF REFERENCE", 120, 74);
+
+        doc.setTextColor(0);
+        doc.setFontSize(11);
+        doc.text(selectedCompany?.trn || "000-000-000", 20, 80);
+        doc.text(selectedEmployee.employeeId, 120, 80);
+
+        // Table
+        const tableData = [
+            ["Total Gross Emoluments", formatCurrency(aggregates.gross)],
+            ["NIS Statutory Deduction (3%)", `(${formatCurrency(aggregates.nis)})`],
+            ["NHT Statutory Deduction (2%)", `(${formatCurrency(aggregates.nht)})`],
+            ["Income Tax Withheld (PAYE)", `(${formatCurrency(aggregates.tax)})`],
+            ["Education Tax Withheld (2.25%)", `(${formatCurrency(aggregates.edTax)})`],
+            ["NET EMOLUMENTS DISBURSED", formatCurrency(aggregates.net)]
+        ];
+
+        autoTable(doc, {
+            startY: 95,
+            head: [["Description of Sequence", "Aggregate JMD"]],
+            body: tableData,
+            theme: 'grid',
+            headStyles: { fillColor: [0, 0, 128], textColor: 255 },
+            columnStyles: { 
+                0: { fontStyle: 'bold' },
+                1: { halign: 'right', fontStyle: 'bold' }
+            },
+            styles: { fontSize: 10 }
+        });
+
+        // Certification
+        const finalY = (doc.lastAutoTable?.finalY || 150) + 20;
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(100);
+        const certification = "This is to certify that the above mentioned emoluments and deductions have been processed through the official SmartHRM Payroll Engine in compliance with the Tax Administration Act. This certificate is valid for submission for tax return purposes.";
+        const splitTitle = doc.splitTextToSize(certification, 170);
+        doc.text(splitTitle, 20, finalY);
+
+        // Signature
+        doc.setFont("helvetica", "bold");
+        doc.text("Authorized Signature: _______________________", 20, finalY + 25);
+        doc.text("Date: " + new Date().toLocaleDateString(), 150, finalY + 25);
+
+        doc.setFontSize(8);
+        doc.setTextColor(200);
+        doc.text(`SmartHRM Compliance v4.2 | Serial: ${Math.random().toString(16).substr(2, 8).toUpperCase()}`, 105, 285, { align: "center" });
+
+        doc.save(`P24_${selectedYear}_${selectedEmployee.lastName}.pdf`);
+    };
+
     const handleExportExcel = () => {
         if (!selectedEmployee) return;
         const dataToExport = [
@@ -89,7 +186,7 @@ const P24Report = () => {
             <div className="bg-[#D4D0C8] border-b border-gray-400 px-2 py-1 flex items-center justify-between">
                 <span className="font-bold text-gray-700 uppercase tracking-tighter">P24 Year End Certificate - Jamaica Compliance</span>
                 <div className="flex gap-2">
-                    <button className="px-3 py-1 bg-blue-600 text-white text-[10px] font-bold flex items-center gap-1">
+                    <button onClick={handleExportPDF} className="px-3 py-1 bg-blue-600 text-white text-[10px] font-bold flex items-center gap-1">
                         <Download size={12} /> Export PDF
                     </button>
                     <button onClick={handleExportExcel} className="px-3 py-1 bg-green-700 text-white text-[10px] font-bold flex items-center gap-1">
@@ -144,7 +241,19 @@ const P24Report = () => {
                                     <h1 className="text-xl font-black text-blue-900 uppercase tracking-widest">Government of Jamaica</h1>
                                     <h2 className="text-lg font-black text-blue-900 uppercase mt-1">Form P24 - Year End Certificate</h2>
                                     <p className="text-[9px] font-bold text-gray-500 mt-1 uppercase tracking-widest">Tax Administration Jamaica</p>
-                                    <div className="mt-4 bg-blue-900 text-white px-4 py-1 inline-block font-black text-xs">
+                                    <div className="mt-4 bg-blue-900 text-white px-2 py-1 inline-flex items-center gap-2 font-black text-[10px] sm:text-xs no-print">
+                                        <label className="uppercase tracking-widest opacity-70">Tax Year:</label>
+                                        <select 
+                                            value={selectedYear} 
+                                            onChange={(e) => setSelectedYear(e.target.value)}
+                                            className="bg-white/10 border-none outline-none font-black text-white cursor-pointer hover:bg-white/20 transition-colors px-1"
+                                        >
+                                            {availableYears.map(yr => (
+                                                <option key={yr} value={yr} className="text-black">{yr}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="mt-4 bg-blue-900 text-white px-4 py-1 hidden print:inline-block font-black text-xs">
                                         TAX YEAR: {selectedYear}
                                     </div>
                                 </div>

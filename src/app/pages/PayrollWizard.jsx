@@ -30,11 +30,20 @@ const PayrollWizard = () => {
     useEffect(() => {
         const months = [];
         const today = new Date();
-        for (let i = 0; i < 12; i++) {
-            const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-            const label = d.toLocaleString('default', { month: 'long', year: 'numeric' });
-            const value = d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
-            months.push({ label, value });
+        const currentYear = today.getFullYear();
+        const currentMonthIndex = today.getMonth();
+        const startYear = currentYear - 20;
+
+        const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        const monthShort = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+        for (let yr = currentYear; yr >= startYear; yr--) {
+            const monthLimit = (yr === currentYear) ? currentMonthIndex : 11;
+            for (let m = monthLimit; m >= 0; m--) {
+                const label = `${monthNames[m]} ${yr}`;
+                const value = `${monthShort[m]}-${yr}`;
+                months.push({ label, value });
+            }
         }
         setPeriods(months);
     }, []);
@@ -137,7 +146,7 @@ const PayrollWizard = () => {
         }
     };
 
-    const formatCurrency = (val) => new Intl.NumberFormat('en-JM', { style: 'currency', currency: 'XY' }).format(val).replace('XY', '$');
+    const formatCurrency = (val) => new Intl.NumberFormat('en-JM', { style: 'currency', currency: 'JMD' }).format(val);
 
     const steps = [
         { id: 1, title: 'Selection', icon: <Users size={20} /> },

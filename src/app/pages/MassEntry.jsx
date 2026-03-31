@@ -9,7 +9,7 @@ const MassEntry = () => {
 
     // Filter State
     const [filters, setFilters] = useState({
-        payCycle: '2026 - Weekly - 06',
+        payCycle: new Date().toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase(),
         transType: 'Regular Hours',
         department: '' // Empty means all
     });
@@ -21,6 +21,26 @@ const MassEntry = () => {
 
     const [isSaving, setIsSaving] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [periods, setPeriods] = useState([]);
+
+    // Generate accurate 20-year period range (2006 - 2026)
+    useEffect(() => {
+        const months = [];
+        const today = new Date();
+        const currentYear = today.getFullYear();
+        const startYear = currentYear - 20;
+
+        const monthShort = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+        for (let yr = currentYear; yr >= startYear; yr--) {
+            const mLimit = (yr === currentYear) ? today.getMonth() : 11;
+            for (let m = mLimit; m >= 0; m--) {
+                const value = `${monthShort[m]}-${yr}`;
+                months.push(value);
+            }
+        }
+        setPeriods(months);
+    }, []);
 
     useEffect(() => {
         const storedCompany = localStorage.getItem('selectedCompany');
@@ -95,14 +115,19 @@ const MassEntry = () => {
     };
 
     const handleDownloadTemplate = () => {
+        if (entries.length === 0) {
+            alert("No employees loaded. Please click 'LOAD EMPLOYEES' first to generate a template for your staff.");
+            return;
+        }
+
         const headers = "EmployeeID,Name,Hours,Rate,Amount\n";
-        const dummyData = "EMP001,JOHN BROWN,40,2500,100000\nEMP002,SARAH SMITH,35,2800,98000";
-        const blob = new Blob([headers + dummyData], { type: 'text/csv' });
+        const csvRows = entries.map(e => `${e.empId},"${e.name}",0,${e.rate},0`).join("\n");
+        const blob = new Blob([headers + csvRows], { type: 'text/csv' });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.setAttribute('hidden', '');
         a.setAttribute('href', url);
-        a.setAttribute('download', `hrm_mass_entry_template_${new Date().toISOString().split('T')[0]}.csv`);
+        a.setAttribute('download', `hrm_mass_entry_template_${filters.payCycle.replace('-', '_')}.csv`);
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -196,7 +221,7 @@ const MassEntry = () => {
                         <Filter size={18} /> Mass Transaction Entry
                     </h1>
                     <div className="text-xs font-bold text-gray-500">
-                        BATCH: <span className="text-black">FEB-2025-01</span>
+                        BATCH: <span className="text-black">{filters.payCycle}-01</span>
                     </div>
                 </div>
 
@@ -208,10 +233,9 @@ const MassEntry = () => {
                             onChange={(e) => setFilters({ ...filters, payCycle: e.target.value })}
                             className="border border-gray-400 p-1 bg-white shadow-inner font-semibold outline-none focus:border-[#0B4FD7]"
                         >
-                            <option>2026 - Weekly - 06</option>
-                            <option>2026 - Monthly - 02</option>
-                            <option>Feb-2026</option>
-                            <option>Jan-2026</option>
+                            {periods.map(p => (
+                                <option key={p} value={p}>{p}</option>
+                            ))}
                         </select>
                     </div>
                     <div className="flex flex-col gap-1">

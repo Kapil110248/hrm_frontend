@@ -41,6 +41,11 @@ const AdminDashboard = () => {
         const fetchDashboardData = async () => {
             console.log("AdminDashboard: Fetching data...");
             try {
+                if (!companyId) {
+                    console.log("AdminDashboard: Company ID not ready, skipping fetch.");
+                    return;
+                }
+
                 if (!api || typeof api.fetchAdminStats !== 'function') {
                     console.error("AdminDashboard: API fetchAdminStats is not available!", api);
                     return;
@@ -51,7 +56,7 @@ const AdminDashboard = () => {
                         console.error("Fetch Admin Stats Error:", err);
                         return { success: false };
                     }),
-                    api.fetchAuditLogs(6).catch(err => {
+                    api.fetchAuditLogs(3, companyId).catch(err => {
                         console.error("Fetch Audit Logs Error:", err);
                         return { success: false };
                     })

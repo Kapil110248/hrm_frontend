@@ -54,6 +54,7 @@ const ReportsHub = () => {
         { id: 'S01', title: 'S01 - Monthly Statutory Remittance', type: 'Monthly', code: 'GOJ-S01-M', icon: Calendar, path: '/statutory/s01' },
         { id: 'NIS', title: 'Consolidated Statutory (NIS/NHT)', type: 'Annual', code: 'GOJ-NIS-04-V2', icon: Building, path: '/reports/statutory-summary' },
         { id: 'NHT', title: 'NHT Contribution by Employee/Year', type: 'Annual', code: 'GOJ-NHT-02', icon: User, path: '/statutory/nht' },
+        { id: 'PEN', title: 'Pension Contribution Report', type: 'Annual', code: 'GOJ-PEN-01', icon: FileText, path: '/statutory/pension' },
         { id: 'PAY', title: 'Master Payroll Summary', type: 'Internal', code: 'INT-PAY-SUM', icon: Printer, path: '/reports/payroll-summary' },
     ];
 
@@ -138,9 +139,9 @@ const ReportsHub = () => {
                                                 onChange={(e) => setSelectedYear(e.target.value)}
                                                 className="w-full bg-[#EBE9D8] border-b-2 border-gray-400 p-2 text-xs font-black focus:border-blue-600 outline-none transition-all"
                                             >
-                                                <option>2026</option>
-                                                <option>2025</option>
-                                                <option>2024</option>
+                                                {Array.from({ length: 21 }, (_, i) => 2026 - i).map(yr => (
+                                                    <option key={yr} value={yr}>{yr}</option>
+                                                ))}
                                             </select>
                                         </div>
                                         <div className="flex flex-col gap-1">

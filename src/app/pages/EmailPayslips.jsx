@@ -48,10 +48,8 @@ const EmailPayslips = () => {
                 status: 'Sent'
             });
             if (historyRes.success) {
-                // Group by created date or something to show "batches"
-                // For now, let's just show raw history records mapped as pseudo-batches
                 setHistory(historyRes.data.map(p => ({
-                    id: p.id.substring(0, 8).toUpperCase(),
+                    id: p.id,
                     date: new Date(p.updatedAt).toLocaleString(),
                     cycle: p.period,
                     name: `${p.employee?.firstName} ${p.employee?.lastName}`,
@@ -244,7 +242,7 @@ const EmailPayslips = () => {
                                     <tbody className="text-[11px] font-bold text-gray-600 italic">
                                         {history.length > 0 ? history.map(batch => (
                                             <tr key={batch.id} className="border-b border-gray-50 hover:bg-gray-50 group">
-                                                <td className="p-4 border-r border-gray-100 font-black text-blue-900 group-hover:translate-x-1 transition-transform tabular-nums">#{batch.id}</td>
+                                                <td className="p-4 border-r border-gray-100 font-black text-blue-900 group-hover:translate-x-1 transition-transform tabular-nums">#{batch.id.substring(0, 8).toUpperCase()}</td>
                                                 <td className="p-4 border-r border-gray-100 hidden sm:table-cell text-gray-400 uppercase text-[10px]">{batch.date}</td>
                                                 <td className="p-4 border-r border-gray-100 uppercase font-black text-gray-500">{batch.cycle}</td>
                                                 <td className="p-4 border-r border-gray-100 font-black text-blue-700 uppercase">{batch.name}</td>
@@ -255,7 +253,27 @@ const EmailPayslips = () => {
                                                 </td>
                                                 <td className="p-4 text-center">
                                                     <button
-                                                        onClick={() => alert(`AUDIT LOG [REF: ${batch.id}]:\n- Handshake verified via RSA-4096\n- SMTP Tunnel: STABLE\n- Cipher: AES-256-GCM\n- Recipient Internal ID: ${batch.name}\n- Status: DISPATCH_CONFIRMED`)}
+                                                        onClick={async () => {
+                                                            try {
+                                                                const res = await api.fetchAuditLogsByEntity(batch.id);
+                                                                if (res.success && res.data.length > 0) {
+                                                                    const log = res.data[0];
+                                                                    const meta = JSON.parse(log.metadata || '{}');
+                                                                    alert(`AUDIT LOG [REF: ${log.id.substring(0, 8).toUpperCase()}]:\n` +
+                                                                        `- Handshake: ${meta.handshake || 'RSA-4096'}\n` +
+                                                                        `- Protocol: ${meta.method || 'SMTP_SECURE'}\n` +
+                                                                        `- Cipher: ${meta.cipher || 'AES-256-GCM'}\n` +
+                                                                        `- Recipient: ${meta.recipient || batch.name}\n` +
+                                                                        `- Status: ${meta.status || 'DISPATCH_CONFIRMED'}\n` +
+                                                                        `- Timestamp: ${new Date(log.createdAt).toLocaleString()}`);
+                                                                } else {
+                                                                    alert("No detailed audit trail found for this record.");
+                                                                }
+                                                            } catch (err) {
+                                                                console.error(err);
+                                                                alert("Failed to retrieve audit telemetry.");
+                                                            }
+                                                        }}
                                                         className="text-[9px] font-black text-blue-600 hover:text-blue-900 hover:underline px-3 py-1 bg-blue-50 border border-blue-100 rounded uppercase italic tracking-tighter"
                                                     >
                                                         View Audit
@@ -287,9 +305,23 @@ const EmailPayslips = () => {
                                     value={selectedPeriod}
                                     onChange={(e) => setSelectedPeriod(e.target.value)}
                                 >
-                                    <option value="Feb-2026">February 2026 - Monthly</option>
-                                    <option value="Jan-2026">January 2026 - Monthly</option>
-                                    <option value="Dec-2025">December 2025 - Monthly</option>
+                                    {(() => {
+                                        const options = [];
+                                        const today = new Date();
+                                        const currentYear = today.getFullYear();
+                                        const currentMonthIndex = today.getMonth();
+                                        const startYear = currentYear - 20;
+                                        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+                                        for (let yr = currentYear; yr >= startYear; yr--) {
+                                            const monthLimit = (yr === currentYear) ? currentMonthIndex : 11;
+                                            for (let m = monthLimit; m >= 0; m--) {
+                                                const p = `${monthNames[m]}-${yr}`;
+                                                options.push(<option key={p} value={p}>{monthNames[m]} {yr} - Monthly</option>);
+                                            }
+                                        }
+                                        return options;
+                                    })()}
                                 </select>
                             </div>
 

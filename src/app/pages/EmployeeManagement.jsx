@@ -435,6 +435,28 @@ const EmployeeManagement = () => {
                                                 National Housing Trust identification for housing contribution deductions.
                                             </p>
                                         </div>
+
+                                        <div className="bg-purple-50/50 p-4 border border-purple-100 rounded-lg">
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <div className="w-1.5 h-6 bg-purple-600 rounded-full"></div>
+                                                <label className="block text-[11px] font-black text-purple-900 uppercase tracking-[0.2em]">Pension Contribution (%)</label>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="number"
+                                                    value={formData.pensionPercent}
+                                                    onChange={(e) => handleInputChange('pensionPercent', e.target.value)}
+                                                    disabled={!isEditing}
+                                                    placeholder="0.00"
+                                                    step="0.01"
+                                                    className="w-24 p-2.5 border border-gray-300 rounded bg-white text-sm font-bold focus:ring-2 focus:ring-purple-500 outline-none disabled:bg-gray-100/50 disabled:text-gray-500 transition-all"
+                                                />
+                                                <span className="text-xs font-black text-purple-700 uppercase tracking-widest">% OF GROSS</span>
+                                            </div>
+                                            <p className="mt-2 text-[9px] text-purple-700 font-bold uppercase tracking-wider leading-relaxed">
+                                                Employee contribution rate. This amount is <span className="text-purple-900 border-b border-purple-200">Tax-Exempt</span> and will be deducted before PAYE calculation.
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             )}

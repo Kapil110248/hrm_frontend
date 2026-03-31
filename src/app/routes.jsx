@@ -178,8 +178,8 @@ const AppRoutes = ({ onLogout, currentUser }) => {
                     <Route path="/reports/ytd-breakdown" element={<YTDBreakdownReport />} />
                     <Route path="/reports/retention" element={<RetentionReport />} />
                     <Route path="/reports/email-p24" element={<EmailPayslips />} />
-                    <Route path="/statutory/p24" element={<P45Report />} />
-                    <Route path="/statutory/p45" element={<JamaicaStatutory type="P45" />} />
+                    <Route path="/statutory/p24" element={<P24Report />} />
+                    <Route path="/statutory/p45" element={<P45Report />} />
                     <Route path="/statutory/nht" element={<NHTReport />} />
                     <Route path="/statutory/nis-nht" element={<JamaicaStatutory type="NIS-NHT" />} />
                     <Route path="/reports/statutory-summary" element={<ConsolidatedStatutoryReport />} />

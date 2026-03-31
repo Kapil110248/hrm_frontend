@@ -112,13 +112,19 @@ const PayslipManagement = () => {
         try {
             const response = await api.fetchPayrollBatches(selectedCompany.id);
 
-            // Standard expected periods (Current + 1 Future + 5 Past)
+            // Standard expected periods (Up to current month, 20 years back)
             const standardPeriods = [];
             const today = new Date();
-            // Start from 1 month in the future
-            for (let i = -1; i < 6; i++) {
-                const d = new Date(today.getFullYear(), today.getMonth() - i, 1);
-                standardPeriods.push(d.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase());
+            const currentYear = today.getFullYear();
+            const currentMonth = today.getMonth(); // 0-11
+            const startYear = currentYear - 20;
+            const monthNames = ["JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"];
+
+            for (let yr = currentYear; yr >= startYear; yr--) {
+                const monthLimit = (yr === currentYear) ? currentMonth : 11;
+                for (let m = monthLimit; m >= 0; m--) {
+                    standardPeriods.push(`${monthNames[m]}-${yr}`);
+                }
             }
 
             let finalPeriods = [];
@@ -143,10 +149,10 @@ const PayslipManagement = () => {
 
             setPeriods(uniquePeriods);
 
-            // Default to current month if available
-            const currentMonth = today.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
-            if (seen.has(currentMonth)) {
-                setSelectedPeriod(currentMonth);
+            // Default to current period if available
+            const currentPeriodStr = today.toLocaleString('default', { month: 'short', year: 'numeric' }).replace(' ', '-').toUpperCase();
+            if (seen.has(currentPeriodStr)) {
+                setSelectedPeriod(currentPeriodStr);
             } else if (uniquePeriods.length > 0) {
                 setSelectedPeriod(uniquePeriods[0].period);
             }
